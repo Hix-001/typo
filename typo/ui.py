@@ -35,13 +35,14 @@ from typo.win32_api import GlobalHotKeyManager, PRIMARY_HOTKEY_LABEL, get_foregr
 from typo.clipboard import get_current_clipboard, analyze_clipboard_content, set_test_clipboard_text
 
 APP_NAME = "TYPO — Studio Glass Edition"
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 WALLPAPER_PATH = os.path.join(ASSETS_DIR, "glass_bg_amber.png")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
-INTER_FONT_PATH = os.path.join(FONTS_DIR, "Inter-Variable.ttf")
+USER_FONTS_DIR = os.path.join(ROOT_DIR, "fonts")
 
-# Typography Hierarchy (Inter Google Font with Apple system fallbacks)
-FONT_FAMILIES = ["-apple-system", "BlinkMacSystemFont", "Inter", "Segoe UI", "sans-serif"]
+# Typography Hierarchy (Native Apple San Francisco Pro, SF Compact, Inter, System Fallbacks)
+FONT_FAMILIES = ["SF Pro", "SF Compact", "-apple-system", "BlinkMacSystemFont", "Inter", "Segoe UI", "sans-serif"]
 MONO_FAMILIES = ["Consolas", "Courier New", "monospace"]
 
 
@@ -51,7 +52,7 @@ def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mon
         f = QFont("Consolas", size, weight)
         f.setFamilies(MONO_FAMILIES)
     else:
-        f = QFont("Inter", size, weight)
+        f = QFont("SF Pro", size, weight)
         f.setFamilies(FONT_FAMILIES)
     return f
 
@@ -309,9 +310,14 @@ class MainWindow(QMainWindow):
         # Apply Global DWM Dark Mode on Windows
         self._setup_dwm()
 
-        # Register and apply Inter Google / Apple System typography
-        if os.path.exists(INTER_FONT_PATH):
-            QFontDatabase.addApplicationFont(INTER_FONT_PATH)
+        # Register Apple SF Pro, SF Compact, New York, and Inter typefaces
+        font_dirs_to_scan = [USER_FONTS_DIR, FONTS_DIR]
+        for fdir in font_dirs_to_scan:
+            if os.path.exists(fdir):
+                for fname in os.listdir(fdir):
+                    if fname.lower().endswith((".ttf", ".otf")):
+                        full_fpath = os.path.join(fdir, fname)
+                        QFontDatabase.addApplicationFont(full_fpath)
         QApplication.setFont(get_app_font(10))
 
         # Build Ambient Wallpaper Root
