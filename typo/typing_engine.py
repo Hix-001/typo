@@ -253,17 +253,21 @@ class TypingEngine:
         """
         if not self.cursor_wandering_enabled:
             return
+        if getattr(self, "_wander_thread", None) and self._wander_thread.is_alive():
+            return
         now = time.time()
         if now - self.last_cursor_drift_time < 2.0:
             return
         self.last_cursor_drift_time = now
         dx = random.randint(-24, 24)
         dy = random.randint(-14, 14)
-        threading.Thread(
+        self._wander_thread = threading.Thread(
             target=smooth_cursor_drift,
             args=(dx, dy, random.uniform(0.18, 0.28), 10),
-            daemon=True
-        ).start()
+            daemon=True,
+            name="TypoWanderThread"
+        )
+        self._wander_thread.start()
 
     def compile_incremental_actions(self, raw_text: str) -> Optional[list[tuple[str, any]]]:
         """
@@ -423,13 +427,13 @@ class TypingEngine:
 
             # Feature 18: Selection & Refactoring Simulation check
             # Look for candidate words to simulate human self-correction (max 1 per snippet)
+            refactor_on_this_line = False
             if self.refactoring_simulation_enabled and not refactor_injected and i > 0:
                 words = [w.strip("(),:;[]{}") for w in stripped.split()]
                 for w in words:
                     if w in REFACTOR_CANDIDATES and random.random() < (self.refactoring_rate * 3.5):
                         draft_token = REFACTOR_CANDIDATES[w]
                         target_token = w
-                        # Append up to this word, then the refactoring action, then remainder
                         w_pos = stripped.find(w)
                         if w_pos != -1:
                             before = stripped[:w_pos]
@@ -440,9 +444,10 @@ class TypingEngine:
                             for char in after:
                                 actions.append(("CHAR", char))
                             refactor_injected = True
+                            refactor_on_this_line = True
                             break
 
-            if not refactor_injected or stripped.find(w if 'w' in locals() else "") == -1:
+            if not refactor_on_this_line:
                 # Append standard line content character-by-character
                 for char in stripped:
                     actions.append(("CHAR", char))
@@ -870,10 +875,12 @@ class TypingEngine:
                     pass
 
         # Completed all actions!
+        elapsed = max(0.01, (time.time() - typing_start) - accumulated_pause_duration)
         self._set_state(EngineState.COMPLETED, {
             "total_typed": self.chars_typed,
-            "elapsed_sec": max(0.01, (time.time() - typing_start) - accumulated_pause_duration)
+            "elapsed_sec": elapsed
         })
+        self._release_memory()
 
     def pause(self):
         """Pauses typing."""
@@ -899,3 +906,14 @@ class TypingEngine:
         if self._worker_thread and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=0.5)
         self._set_state(EngineState.STOPPED, {"reason": "Stopped by user"})
+        self._release_memory()
+
+    def _release_memory(self):
+        """Releases compiled actions and raw text buffers to minimize memory footprint."""
+        self.compiled_actions = []
+        self.raw_text = ""
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
