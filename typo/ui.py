@@ -1,10 +1,10 @@
 """
-TYPO® — Studio Glass Edition (PySide6 Native Liquid Glass)
+TYPO® — Studio Frosted Edition (PySide6 Native Frosted Glass)
 High-fidelity desktop interface matching the Studio Glass design specification.
 
 Features:
-- Translucent warm amber/bronze obsidian glass panels with specular hairlines
-- Seamless atmospheric liquid light & wallpaper blending (no desktop bleed-through)
+- Translucent warm amber/bronze frosted glass panels with specular hairlines
+- Seamless atmospheric ambient illumination & wallpaper blending (no desktop bleed-through)
 - Native visionOS capsule navigation, dual side-by-side faders, and 2x2 stealth matrix
 - Recessed dark monospace code buffer with live clipboard analytics
 - Apple visionOS animated iOS switch toggles
@@ -176,11 +176,11 @@ class AmbientBackground(QWidget):
             p.drawPixmap(x, y, scaled)
             p.setOpacity(1.0)
 
-        # Warm light blooms for enhanced depth
+        # Warm ambient light blooms for enhanced diffusion and depth
         blooms = [
-            (QPointF(r.width() * 0.40, r.height() * 0.15), r.width() * 0.45, QColor(255, 120, 30, 75)),
-            (QPointF(r.width() * 0.85, r.height() * 0.45), r.width() * 0.38, QColor(255, 160, 50, 45)),
-            (QPointF(r.width() * 0.15, r.height() * 0.85), r.width() * 0.35, QColor(255, 95, 20, 45)),
+            (QPointF(r.width() * 0.40, r.height() * 0.15), r.width() * 0.55, QColor(255, 130, 45, 65)),
+            (QPointF(r.width() * 0.85, r.height() * 0.45), r.width() * 0.48, QColor(255, 170, 65, 40)),
+            (QPointF(r.width() * 0.15, r.height() * 0.85), r.width() * 0.45, QColor(255, 105, 30, 38)),
         ]
         for center, radius, color in blooms:
             grad = QRadialGradient(center, radius)
@@ -190,18 +190,26 @@ class AmbientBackground(QWidget):
             grad.setColorAt(1, edge)
             p.fillRect(r, QBrush(grad))
 
+        # Frosted matte diffusion overlay (soft translucent haze)
+        frosted_haze = QLinearGradient(0, 0, 0, r.height())
+        frosted_haze.setColorAt(0.0, QColor(255, 235, 210, 14))
+        frosted_haze.setColorAt(0.5, QColor(255, 215, 175, 8))
+        frosted_haze.setColorAt(1.0, QColor(255, 200, 150, 18))
+        p.fillRect(r, QBrush(frosted_haze))
+
         p.end()
 
 
 # ==========================================
-# Frosted Glass Floating Card Panel
+# Frosted Studio Floating Card Panel
 # ==========================================
 class GlassCard(QFrame):
     def __init__(self, parent=None, elevated=False):
         super().__init__(parent)
         self.setObjectName("glassCard")
-        bg_col = "rgba(42, 24, 15, 185)" if elevated else "rgba(30, 18, 11, 180)"
-        border_col = "rgba(255, 195, 125, 65)" if elevated else "rgba(255, 180, 110, 48)"
+        # Dense frosted translucent glass with soft inner highlight diffusion
+        bg_col = "rgba(38, 22, 14, 215)" if elevated else "rgba(28, 17, 10, 205)"
+        border_col = "rgba(255, 215, 160, 55)" if elevated else "rgba(255, 195, 135, 42)"
         self.setStyleSheet(f"""
             QFrame#glassCard {{
                 background: {bg_col};
@@ -394,7 +402,7 @@ class MainWindow(QMainWindow):
         text_box = QVBoxLayout()
         text_box.setSpacing(2)
         text_box.addWidget(make_label("TYPO STUDIO", 9, "#F59E0B", bold=True))
-        text_box.addWidget(make_label("Vision Liquid Glass", 10, "#FFFFFF", bold=True))
+        text_box.addWidget(make_label("Frosted Obsidian", 10, "#FFFFFF", bold=True))
         pr_lay.addLayout(text_box, 1)
 
         # Green Beacon Dot
@@ -549,7 +557,7 @@ class MainWindow(QMainWindow):
         left = QVBoxLayout()
         left.setSpacing(3)
         left.addWidget(make_label("VISION OS // AUTOMATION STUDIO", 9, "#E09848", bold=True))
-        self.lbl_deck_title = make_label("Control Deck · Dynamic Glass Sequencer", 17, "#FFFFFF", bold=True)
+        self.lbl_deck_title = make_label("Control Deck · Frosted Glass Sequencer", 17, "#FFFFFF", bold=True)
         left.addWidget(self.lbl_deck_title)
         row.addLayout(left, 1)
 
@@ -571,8 +579,8 @@ class MainWindow(QMainWindow):
         capsule_bar = GlassCard()
         capsule_bar.setStyleSheet("""
             QFrame#glassCard {
-                background: rgba(26, 15, 9, 210);
-                border: 1px solid rgba(255, 185, 115, 55);
+                background: rgba(28, 17, 10, 215);
+                border: 1px solid rgba(255, 195, 135, 50);
                 border-radius: 20px;
             }
         """)
@@ -613,9 +621,9 @@ class MainWindow(QMainWindow):
 
         row.addStretch(1)
 
-        # Rightmost Liquid Glass Pill
-        liquid_pill = make_pill_button("💧 Liquid Glass")
-        row.addWidget(liquid_pill)
+        # Rightmost Frosted Glass Pill
+        frosted_pill = make_pill_button("❄ Frosted Glass")
+        row.addWidget(frosted_pill)
         return capsule_bar
 
     # ==========================================
