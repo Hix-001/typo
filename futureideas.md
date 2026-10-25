@@ -16,6 +16,11 @@ This document serves as the master engineering repository for **TYPO**, compilin
 | **NEW-17** | Complexity Cadence Throttler (Line Pacing) | Cognitive Realism | **Implemented** |
 | **NEW-18** | Selection & Refactoring Simulation (Shift+Left) | Live Editing | **Implemented** |
 | **UI-06** | Apple Liquid Glass UI (visionOS Edition) | Design System | **Implemented** |
+| **MEM-01** | Zero-Allocation Memory Optimization & GDI Font Purge | Memory / Footprint | **Implemented** |
+| **MEM-02** | O(1) Clipboard Fingerprinting & Heap Preservation | Memory / Footprint | **Implemented** |
+| **MEM-03** | Proactive Tkinter Timer Lifecycle & Leak Prevention | Memory / Footprint | **Implemented** |
+| **MEM-04** | Post-Execution Action & Text Buffer Garbage Collection | Memory / Footprint | **Implemented** |
+| **MEM-05** | 64-bit Win32 Pointer Hardening & GlobalFree Leak Guards | Safety / Stability | **Implemented** |
 | **NEXT-01** | Synthetic Mechanical Typing Acoustics (Mic Loopback) | Audio Telemetry | **Phase 4 Spec** |
 | **NEXT-02** | Smart Levenshtein Diff & In-Place Code Patching | Minimal Diffs | **Phase 4 Spec** |
 | **NEXT-03** | Dynamic Tab-Switching & Decoy Doc Simulator | Behavioral Telemetry | **Phase 4 Spec** |
@@ -232,12 +237,44 @@ The following 5 elite capabilities represent the next generation of stealth, rea
   - Crops the question and constraint zones, transmits the image directly to Grok 2 Vision (`grok-vision-beta`) or Claude 3.5 Sonnet over an encrypted volatile memory pipe.
   - Receives the optimal solution directly into volatile RAM, feeding TYPO's typing queue without touching the OS clipboard or writing a single file to disk.
 
-### 5. Sub-Pixel Micro-Stego Invisibility HUD (Lossy Codec Destruction)
-* **The Problem:** Screen-recording proctors (Zoom, Google Meet, Teams, CodeSignal screen recorder) record the full desktop. Floating HUDs or windows are visible in the recording feed.
-* **The Architecture:**
-  - Generates hint overlays using a calibrated sub-pixel chromatic delta (e.g., RGB `(250, 250, 252)` against `#FFFFFF`).
-  - Because human eyes looking at an IPS/OLED monitor have high dynamic range, the text is easily legible to the candidate sitting in front of the screen.
-  - However, video compression codecs (H.264, H.265, VP9) used by video-conferencing platforms downsample chroma (4:2:0) and quantize high-frequency luminance, completely obliterating the hint text and rendering the shared video feed 100% clean.
+---
+
+## Phase 5: Memory Optimization & Zero-Leak Production Architecture
+
+To maintain the lowest possible system footprint and guarantee seamless operation in locked-down, resource-monitored assessment environments, TYPO employs a multi-tiered memory minimization and leak prevention subsystem:
+
+### 1. Dead Weight Eradication & GDI Table Unloading (MEM-01)
+* **The Problem:** Loading redundant image assets and custom OTF/TTF font files into the Windows GDI table consumes permanent kernel-mode GDI handles and heap memory.
+* **The Solution:**
+  - Pruned all unused graphical assets (`typo_banner_cropped.jpg`, `typo_chrome_hero.jpg`, `typo_light_chrome.jpg`) and 10 custom Nothing OS font binaries (`Inter`, `Ndot`, `NType82`, `LetteraMono`).
+  - Purged the dynamic GDI font registration loader (`typo/fonts.py`).
+  - Standardized on Windows native Segoe UI and Consolas typography, reducing the on-disk footprint by ~3.5MB and saving substantial GDI process allocations.
+  - Eradicated all ephemeral test scripts and replica copies (`scratch/`, `test_ui.py`, `ui_copy.py`).
+
+### 2. O(1) Clipboard Fingerprinting & Heap Preservation (MEM-02)
+* **The Problem:** Standard polling mechanisms retain a full copy of the clipboard string (`self._last_clipboard_text = text`) across 1-second cycles. When a candidate copies a 5MB–50MB file or dataset in another application, Python retains multi-megabyte string buffers in heap, and string comparisons (`text != last_text`) incur CPU spikes.
+* **The Solution:**
+  - Implemented an $O(1)$ fingerprint tuple: `(len(text), hash(text[:1024]), hash(text[-1024:]) if len(text) > 1024 else 0)`.
+  - The UI state retains only this 3-integer tuple (a few bytes), preventing massive string buffers from being pinned in RAM.
+
+### 3. Zero-Allocation String Telemetry (MEM-03)
+* **The Problem:** Standard telemetry parsing used `text.splitlines()` and `text.split()`, which allocates lists containing millions of individual Python string objects for large documents.
+* **The Solution:**
+  - Line counting upgraded to C-speed `text.count("\n") + 1` with zero intermediate list allocations.
+  - Unicode detection replaced with vectorized C SIMD `not text.isascii()`.
+  - Word count calculation operates on a 25,000-character sample window for large buffers rather than segmenting the entire buffer.
+
+### 4. Proactive Tkinter Timer Lifecycle & Leak Prevention (MEM-04)
+* **The Problem:** In Tkinter/CustomTkinter applications, `self.after(ms, callback)` schedules timers on the Tcl interpreter. When a window is closed or hidden, pending timers fire into destroyed widgets, causing `TclError`, uncollectable cycle references, and memory retention.
+* **The Solution:**
+  - Wrapped all timer dispatches into a centralized `_schedule(delay, callback)` mechanism that tracks active timer IDs in `self._after_ids`.
+  - On window closure (`_on_close`), an `_is_closing` guard is asserted, all scheduled IDs are explicitly cancelled via `self.after_cancel()`, child windows (`GhostHUD`) are destroyed, and `gc.collect()` is triggered.
+
+### 5. 64-bit Win32 Pointer Signatures & GlobalFree Guards (MEM-05)
+* **The Problem:** Undeclared Win32 API functions return 32-bit signed integers by default in ctypes. On 64-bit Windows, pointer truncation can corrupt HWNDs and memory handles. Additionally, if `SetClipboardData` fails, allocated `HGLOBAL` memory leaks into the Windows heap.
+* **The Solution:**
+  - Explicitly defined 64-bit `LONG_PTR`, `HWND`, `HGLOBAL`, and `HANDLE` types across all `user32` and `kernel32` methods (`GetParent`, `GetAncestor`, `SetWindowLongPtrW`, `SetWindowPos`, `GetCursorPos`, `SetCursorPos`).
+  - Added strict `kernel32.GlobalFree` cleanup blocks ensuring memory allocated via `GlobalAlloc` is safely reclaimed if locking or clipboard assignment fails.
 
 ---
 
