@@ -15,7 +15,7 @@ This document serves as the master engineering repository for **TYPO**, compilin
 | **NEW-15** | Incremental Test-Driven Code Construction | Development Cadence | **Implemented** |
 | **NEW-17** | Complexity Cadence Throttler (Line Pacing) | Cognitive Realism | **Implemented** |
 | **NEW-18** | Selection & Refactoring Simulation (Shift+Left) | Live Editing | **Implemented** |
-| **UI-05** | Nothing OS 5.0 Aesthetic & Ndot/NType Fonts | Design System | **Implemented** |
+| **UI-06** | Apple Liquid Glass UI (visionOS Edition) | Design System | **Implemented** |
 | **NEXT-01** | Synthetic Mechanical Typing Acoustics (Mic Loopback) | Audio Telemetry | **Phase 4 Spec** |
 | **NEXT-02** | Smart Levenshtein Diff & In-Place Code Patching | Minimal Diffs | **Phase 4 Spec** |
 | **NEXT-03** | Dynamic Tab-Switching & Decoy Doc Simulator | Behavioral Telemetry | **Phase 4 Spec** |
