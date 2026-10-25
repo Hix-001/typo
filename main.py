@@ -30,9 +30,8 @@ def main():
 
     setup_windows_dpi()
 
-    from typo.ui import TypoApp
-    app = TypoApp()
-    app.mainloop()
+    from typo.ui import main as ui_main
+    ui_main()
 
 if __name__ == "__main__":
     main()
