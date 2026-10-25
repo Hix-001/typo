@@ -213,6 +213,9 @@ class TypingEngine:
         self.refactoring_rate: float = 0.02
         self.on_refactoring_simulated: Optional[Callable[[str, str], None]] = None
 
+        # Feature 19: Inhuman Mode (360 WPM / ~1800 CPM Ultra-Speed Stream)
+        self.inhuman_mode: bool = False
+
         # State management
         self.state: str = EngineState.IDLE
         self._pause_event = threading.Event()
@@ -496,20 +499,20 @@ class TypingEngine:
         if self.complexity_throttler_enabled and line_complexity != 1.0:
             delay *= (0.65 + line_complexity * 0.35)
 
-        min_delay = max(0.015, base_delay * 0.35)
+        # Inhuman Mode allows ultra-low micro-delays down to 5ms for 360 WPM stream
+        min_clamp = 0.005 if (self.inhuman_mode or self.wpm >= 300.0) else 0.015
+        min_delay = max(min_clamp, base_delay * 0.35)
         max_delay = base_delay * 3.2
         return max(min_delay, min(delay, max_delay))
 
     def calculate_dwell_time(self, char: str) -> float:
         """
         Calculates authentic human key dwell time (duration physical key remains held down).
-        Normal distribution centered around base_dwell_ms (default ~55ms):
-        - Capital letters & Shift symbols (!, @, #, $, {, }): ~65-95ms
-        - Enter, Space, Backspace: ~70-110ms
-        - Frequent lowercase letters (e, t, a, o, i): ~40-60ms
-        - Clamped safely between 25ms and 140ms.
+        Normal distribution centered around base_dwell_ms (default ~55ms).
+        In Inhuman Mode (360 WPM), scales down to ~12ms to prevent queue congestion.
         """
-        base = self.base_dwell_ms / 1000.0
+        effective_dwell_ms = 12.0 if (self.inhuman_mode or self.wpm >= 300.0) else self.base_dwell_ms
+        base = effective_dwell_ms / 1000.0
         std = base * self.dwell_variance
         dwell = random.gauss(base, std)
 
@@ -520,7 +523,9 @@ class TypingEngine:
         elif char.lower() in ("e", "t", "a", "o", "i", "n", "s"):
             dwell -= base * 0.15
 
-        return max(0.025, min(dwell, 0.140))
+        min_clamp = 0.008 if (self.inhuman_mode or self.wpm >= 300.0) else 0.025
+        max_clamp = 0.024 if (self.inhuman_mode or self.wpm >= 300.0) else 0.140
+        return max(min_clamp, min(dwell, max_clamp))
 
     def _inject_mistake_and_correct(self, target_char: str) -> bool:
         """
