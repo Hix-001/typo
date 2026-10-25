@@ -397,6 +397,9 @@ class TypoApp(ctk.CTk):
         # Top App Bar
         self._build_top_bar()
 
+        # Floating Liquid Glass Capsule Bar
+        self._build_floating_capsule_bar()
+
         # Scrollable Content Body
         self.body_scroll = ctk.CTkScrollableFrame(
             self.workspace,
@@ -488,6 +491,96 @@ class TypoApp(ctk.CTk):
             pady=6
         )
         self.lbl_target_window.pack(side="right")
+
+    def _build_floating_capsule_bar(self):
+        """
+        Floating Liquid Glass Capsule Navigation Bar
+        (Inspired by Image 1 '+ Living Room | Kitchen | Bathroom | Bedroom' pill).
+        """
+        capsule_bar = ctk.CTkFrame(
+            self.workspace,
+            height=46,
+            fg_color=GLASS_PILL_BAR,
+            border_color=GLASS_PILL_BAR_BORDER,
+            border_width=1,
+            corner_radius=23
+        )
+        capsule_bar.pack(fill="x", padx=22, pady=(0, 14))
+        capsule_bar.pack_propagate(False)
+
+        caps_inner = ctk.CTkFrame(capsule_bar, fg_color="transparent")
+        caps_inner.pack(fill="both", expand=True, padx=6, pady=4)
+
+        # Plus icon liquid lens
+        add_pill = ctk.CTkLabel(
+            caps_inner,
+            text="+",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
+            text_color=TEXT_PRIMARY,
+            fg_color=GLASS_INSET,
+            border_color=GLASS_CARD_BORDER,
+            border_width=1,
+            corner_radius=19,
+            width=38,
+            height=38,
+            cursor="hand2"
+        )
+        add_pill.pack(side="left", padx=(2, 8))
+
+        # Active Primary Glass Capsule
+        active_pill = ctk.CTkFrame(
+            caps_inner,
+            fg_color=GLASS_PILL_ACTIVE,
+            border_color=GLASS_PILL_ACTIVE_BORDER,
+            border_width=1,
+            corner_radius=19,
+            height=38
+        )
+        active_pill.pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            active_pill,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=9),
+            text_color=APPLE_GREEN
+        ).pack(side="left", padx=(12, 4))
+
+        ctk.CTkLabel(
+            active_pill,
+            text="Primary Studio",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=TEXT_PRIMARY
+        ).pack(side="left", padx=(0, 14))
+
+        # Liquid glass tabs
+        pills = ["Biometrics", "Code Buffer", "Telemetry Log", "Anti-Gaze"]
+        for p in pills:
+            pill_lbl = ctk.CTkLabel(
+                caps_inner,
+                text=p,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=11),
+                text_color=TEXT_SECONDARY,
+                fg_color="transparent",
+                corner_radius=19,
+                padx=12,
+                cursor="hand2"
+            )
+            pill_lbl.pack(side="left", padx=2)
+
+        # Right side + Liquid Glass badge (matching user's newest image)
+        lens_badge = ctk.CTkLabel(
+            caps_inner,
+            text="💧 Liquid Glass",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text_color=TEXT_PRIMARY,
+            fg_color="#182030",
+            border_color=GLASS_CARD_BORDER_GLOW,
+            border_width=1,
+            corner_radius=15,
+            padx=12,
+            pady=4
+        )
+        lens_badge.pack(side="right", padx=(0, 4))
 
     # ==========================================
     # 1. Hero Telemetry & Action Deck (Apple Glass Widget)
