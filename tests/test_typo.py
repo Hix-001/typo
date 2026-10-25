@@ -100,6 +100,19 @@ class TestTypoEngine(unittest.TestCase):
         delay_100 = self.engine.calculate_character_delay("a", "")
         self.assertAlmostEqual(delay_100, 0.120, delta=0.005)
 
+    def test_inhuman_mode_360_wpm(self):
+        # 360 WPM Inhuman Mode: 60.0 / (360 * 5) = 60 / 1800 = ~0.0333s base delay
+        self.engine.inhuman_mode = True
+        self.engine.wpm = 360.0
+        self.engine.variance = 0.0
+        delay_360 = self.engine.calculate_character_delay("a", "")
+        self.assertAlmostEqual(delay_360, 0.0333, delta=0.005)
+
+        # Verify dwell time scales down to ~12ms
+        dwell = self.engine.calculate_dwell_time("a")
+        self.assertLessEqual(dwell, 0.024)
+        self.assertGreaterEqual(dwell, 0.008)
+
     def test_cadence_modifiers(self):
         self.engine.wpm = 80.0
         self.engine.variance = 0.0
