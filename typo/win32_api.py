@@ -134,6 +134,23 @@ class INPUT(ctypes.Structure):
         ("u", _INPUT_UNION)
     ]
 
+class POINT(ctypes.Structure):
+    _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
+
+LONG_PTR = ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
+
+if hasattr(user32, "GetWindowLongPtrW"):
+    _GetWindowLongPtr = user32.GetWindowLongPtrW
+    _SetWindowLongPtr = user32.SetWindowLongPtrW
+else:
+    _GetWindowLongPtr = user32.GetWindowLongW
+    _SetWindowLongPtr = user32.SetWindowLongW
+
+_GetWindowLongPtr.argtypes = [wintypes.HWND, ctypes.c_int]
+_GetWindowLongPtr.restype = LONG_PTR
+_SetWindowLongPtr.argtypes = [wintypes.HWND, ctypes.c_int, LONG_PTR]
+_SetWindowLongPtr.restype = LONG_PTR
+
 # Setup Win32 function signatures
 user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
 user32.SendInput.restype = wintypes.UINT
@@ -165,6 +182,24 @@ user32.CloseClipboard.restype = wintypes.BOOL
 user32.GetClipboardData.argtypes = [wintypes.UINT]
 user32.GetClipboardData.restype = wintypes.HANDLE
 
+user32.GetParent.argtypes = [wintypes.HWND]
+user32.GetParent.restype = wintypes.HWND
+
+user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+user32.GetAncestor.restype = wintypes.HWND
+
+user32.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD]
+user32.SetLayeredWindowAttributes.restype = wintypes.BOOL
+
+user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+user32.SetWindowPos.restype = wintypes.BOOL
+
+user32.GetCursorPos.argtypes = [ctypes.POINTER(POINT)]
+user32.GetCursorPos.restype = wintypes.BOOL
+
+user32.SetCursorPos.argtypes = [ctypes.c_int, ctypes.c_int]
+user32.SetCursorPos.restype = wintypes.BOOL
+
 kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
 kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
 
@@ -173,6 +208,9 @@ kernel32.GlobalLock.restype = ctypes.c_void_p
 
 kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
 kernel32.GlobalUnlock.restype = wintypes.BOOL
+
+kernel32.GlobalFree.argtypes = [wintypes.HGLOBAL]
+kernel32.GlobalFree.restype = wintypes.HGLOBAL
 
 kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 kernel32.OpenProcess.restype = wintypes.HANDLE
@@ -460,9 +498,9 @@ def make_window_ghost(hwnd: int, alpha: int = 240) -> bool:
         root = user32.GetAncestor(hwnd, 2)  # GA_ROOT
         target_hwnd = root if root else (parent if parent else hwnd)
 
-        ex_style = user32.GetWindowLongW(target_hwnd, GWL_EXSTYLE)
+        ex_style = _GetWindowLongPtr(target_hwnd, GWL_EXSTYLE)
         ghost_style = ex_style | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED
-        user32.SetWindowLongW(target_hwnd, GWL_EXSTYLE, ghost_style)
+        _SetWindowLongPtr(target_hwnd, GWL_EXSTYLE, ghost_style)
 
         if alpha < 255:
             user32.SetLayeredWindowAttributes(target_hwnd, 0, alpha, LWA_ALPHA)
@@ -482,8 +520,6 @@ def make_window_ghost(hwnd: int, alpha: int = 240) -> bool:
 # ==========================================
 # Simulated Cursor Wandering & Selection Refactoring
 # ==========================================
-class POINT(ctypes.Structure):
-    _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
 
 def get_cursor_pos() -> tuple[int, int]:
