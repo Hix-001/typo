@@ -21,7 +21,7 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer
 from PySide6.QtGui import (
-    QColor, QFont, QLinearGradient, QRadialGradient, QPainter, QPen,
+    QColor, QFont, QFontDatabase, QLinearGradient, QRadialGradient, QPainter, QPen,
     QBrush, QIcon, QPixmap, QPainterPath
 )
 from PySide6.QtWidgets import (
@@ -37,6 +37,23 @@ from typo.clipboard import get_current_clipboard, analyze_clipboard_content, set
 APP_NAME = "TYPO — Studio Glass Edition"
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 WALLPAPER_PATH = os.path.join(ASSETS_DIR, "glass_bg_amber.png")
+FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
+INTER_FONT_PATH = os.path.join(FONTS_DIR, "Inter-Variable.ttf")
+
+# Typography Hierarchy (Inter Google Font with Apple system fallbacks)
+FONT_FAMILIES = ["-apple-system", "BlinkMacSystemFont", "Inter", "Segoe UI", "sans-serif"]
+MONO_FAMILIES = ["Consolas", "Courier New", "monospace"]
+
+
+def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mono: bool = False) -> QFont:
+    """Returns a QFont configured with the project font stack."""
+    if mono:
+        f = QFont("Consolas", size, weight)
+        f.setFamilies(MONO_FAMILIES)
+    else:
+        f = QFont("Inter", size, weight)
+        f.setFamilies(FONT_FAMILIES)
+    return f
 
 SAMPLE_CODE = """#include <vector>
 #include <string>
@@ -196,9 +213,8 @@ class GlassCard(QFrame):
 
 def make_label(text, size=10, color="#FDF8F3", bold=False, mono=False):
     lbl = QLabel(text)
-    font_fam = "Consolas" if mono else "Segoe UI"
     weight = QFont.Weight.Bold if bold else QFont.Weight.Normal
-    lbl.setFont(QFont(font_fam, size, weight))
+    lbl.setFont(get_app_font(size, weight, mono=mono))
     lbl.setStyleSheet(f"color: {color}; background: transparent;")
     return lbl
 
@@ -206,7 +222,7 @@ def make_label(text, size=10, color="#FDF8F3", bold=False, mono=False):
 def make_pill_button(text, active=False, danger=False, primary=False):
     btn = QPushButton(text)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    btn.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+    btn.setFont(get_app_font(9, QFont.Weight.DemiBold))
     btn.setMinimumHeight(32)
 
     if danger:
@@ -292,6 +308,11 @@ class MainWindow(QMainWindow):
         # Apply Global DWM Dark Mode on Windows
         self._setup_dwm()
 
+        # Register and apply Inter Google / Apple System typography
+        if os.path.exists(INTER_FONT_PATH):
+            QFontDatabase.addApplicationFont(INTER_FONT_PATH)
+        QApplication.setFont(get_app_font(10))
+
         # Build Ambient Wallpaper Root
         self.root = AmbientBackground(self)
         self.setCentralWidget(self.root)
@@ -361,7 +382,7 @@ class MainWindow(QMainWindow):
         logo_box = QLabel("T")
         logo_box.setFixedSize(36, 36)
         logo_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_box.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        logo_box.setFont(get_app_font(16, QFont.Weight.Bold))
         logo_box.setStyleSheet("""
             background: #24140B;
             color: #FFFFFF;
@@ -407,7 +428,7 @@ class MainWindow(QMainWindow):
                 b_lay.addWidget(icon_lbl)
 
                 title_lbl = QLabel(name)
-                title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold if is_active else QFont.Weight.Normal))
+                title_lbl.setFont(get_app_font(10, QFont.Weight.Bold if is_active else QFont.Weight.Normal))
                 title_lbl.setStyleSheet("color: #FFFFFF;" if is_active else "color: #E2D2C2; background: transparent;")
                 b_lay.addWidget(title_lbl, 1)
 
@@ -469,7 +490,7 @@ class MainWindow(QMainWindow):
         # Emergency Abort
         self.btn_abort = QPushButton("!  Emergency Abort [ Esc ]")
         self.btn_abort.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_abort.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.btn_abort.setFont(get_app_font(9, QFont.Weight.Bold))
         self.btn_abort.setStyleSheet("""
             QPushButton {
                 color: #FF5252;
@@ -563,7 +584,7 @@ class MainWindow(QMainWindow):
         add_btn = QPushButton("+")
         add_btn.setFixedSize(34, 34)
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_btn.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        add_btn.setFont(get_app_font(13, QFont.Weight.Bold))
         add_btn.setStyleSheet("""
             QPushButton {
                 color: #FFFFFF;
@@ -758,7 +779,7 @@ class MainWindow(QMainWindow):
         # Recessed Monospace Editor
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(False)
-        self.editor.setFont(QFont("Consolas", 10))
+        self.editor.setFont(get_app_font(10, mono=True))
         self.editor.setMinimumHeight(130)
         self.editor.setStyleSheet("""
             QTextEdit {
