@@ -162,7 +162,7 @@ class AmbientBackground(QWidget):
         base.setColorAt(1.0, QColor("#0D0705"))
         p.fillRect(r, base)
 
-        # Wallpaper layer if present
+        # Wallpaper layer if present (clean high-res background matching reference)
         if self._pixmap and not self._pixmap.isNull():
             scaled = self._pixmap.scaled(
                 r.size(),
@@ -172,15 +172,13 @@ class AmbientBackground(QWidget):
             # Center the scaled wallpaper
             x = (r.width() - scaled.width()) // 2
             y = (r.height() - scaled.height()) // 2
-            p.setOpacity(0.92)
             p.drawPixmap(x, y, scaled)
-            p.setOpacity(1.0)
 
-        # Warm ambient light blooms for enhanced diffusion and depth
+        # Subtle warm radiant bloom enhancement matching the glowing reference streaks
         blooms = [
-            (QPointF(r.width() * 0.40, r.height() * 0.15), r.width() * 0.55, QColor(255, 130, 45, 65)),
-            (QPointF(r.width() * 0.85, r.height() * 0.45), r.width() * 0.48, QColor(255, 170, 65, 40)),
-            (QPointF(r.width() * 0.15, r.height() * 0.85), r.width() * 0.45, QColor(255, 105, 30, 38)),
+            (QPointF(r.width() * 0.42, r.height() * 0.12), r.width() * 0.50, QColor(255, 140, 40, 48)),
+            (QPointF(r.width() * 0.88, r.height() * 0.42), r.width() * 0.42, QColor(255, 175, 60, 35)),
+            (QPointF(r.width() * 0.18, r.height() * 0.88), r.width() * 0.40, QColor(255, 115, 30, 32)),
         ]
         for center, radius, color in blooms:
             grad = QRadialGradient(center, radius)
@@ -189,13 +187,6 @@ class AmbientBackground(QWidget):
             edge.setAlpha(0)
             grad.setColorAt(1, edge)
             p.fillRect(r, QBrush(grad))
-
-        # Frosted matte diffusion overlay (soft translucent haze)
-        frosted_haze = QLinearGradient(0, 0, 0, r.height())
-        frosted_haze.setColorAt(0.0, QColor(255, 235, 210, 14))
-        frosted_haze.setColorAt(0.5, QColor(255, 215, 175, 8))
-        frosted_haze.setColorAt(1.0, QColor(255, 200, 150, 18))
-        p.fillRect(r, QBrush(frosted_haze))
 
         p.end()
 
@@ -207,9 +198,11 @@ class GlassCard(QFrame):
     def __init__(self, parent=None, elevated=False):
         super().__init__(parent)
         self.setObjectName("glassCard")
-        # Dense frosted translucent glass with soft inner highlight diffusion
-        bg_col = "rgba(38, 22, 14, 215)" if elevated else "rgba(28, 17, 10, 205)"
-        border_col = "rgba(255, 215, 160, 55)" if elevated else "rgba(255, 195, 135, 42)"
+        # Translucent warm amber/dark obsidian glass matching the reference screenshot exactly:
+        # Subtle warm tint (alpha ~135-155) so the glorious radiant background shines through,
+        # bounded by a crisp, glowing warm golden specular rim border.
+        bg_col = "rgba(22, 13, 8, 155)" if elevated else "rgba(16, 10, 6, 138)"
+        border_col = "rgba(255, 205, 140, 85)" if elevated else "rgba(255, 190, 120, 65)"
         self.setStyleSheet(f"""
             QFrame#glassCard {{
                 background: {bg_col};
@@ -263,32 +256,32 @@ def make_pill_button(text, active=False, danger=False, primary=False):
     elif active:
         btn.setStyleSheet("""
             QPushButton {
-                color: #FFE3BA;
-                background: rgba(255, 165, 65, 42);
-                border: 1px solid rgba(255, 195, 120, 100);
+                color: #FFFFFF;
+                background: rgba(255, 160, 50, 60);
+                border: 1px solid rgba(255, 210, 140, 160);
                 border-radius: 16px;
                 padding: 0 14px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background: rgba(255, 180, 80, 60);
+                background: rgba(255, 175, 70, 80);
             }
         """)
     else:
         btn.setStyleSheet("""
             QPushButton {
                 color: #FDF8F3;
-                background: rgba(255, 215, 170, 20);
-                border: 1px solid rgba(255, 190, 125, 60);
+                background: rgba(255, 210, 160, 22);
+                border: 1px solid rgba(255, 195, 130, 75);
                 border-radius: 16px;
                 padding: 0 14px;
             }
             QPushButton:hover {
-                background: rgba(255, 220, 180, 36);
-                border-color: rgba(255, 210, 150, 95);
+                background: rgba(255, 220, 175, 40);
+                border-color: rgba(255, 225, 165, 120);
             }
             QPushButton:pressed {
-                background: rgba(255, 200, 150, 48);
+                background: rgba(255, 200, 150, 55);
             }
         """)
     return btn
@@ -448,8 +441,8 @@ class MainWindow(QMainWindow):
                 if is_active:
                     btn.setStyleSheet("""
                         QPushButton {
-                            background: rgba(255, 165, 65, 42);
-                            border: 1px solid rgba(255, 195, 120, 95);
+                            background: rgba(255, 150, 40, 50);
+                            border: 1px solid rgba(255, 200, 130, 140);
                             border-radius: 12px;
                         }
                     """)
@@ -462,7 +455,7 @@ class MainWindow(QMainWindow):
                         }
                         QPushButton:hover {
                             background: rgba(255, 215, 170, 22);
-                            border: 1px solid rgba(255, 190, 125, 45);
+                            border: 1px solid rgba(255, 190, 125, 55);
                         }
                     """)
 
@@ -484,8 +477,8 @@ class MainWindow(QMainWindow):
         # Inset Key Capsule
         key_capsule = QFrame()
         key_capsule.setStyleSheet("""
-            background: rgba(18, 11, 7, 210);
-            border: 1px solid rgba(255, 190, 130, 45);
+            background: rgba(14, 9, 5, 160);
+            border: 1px solid rgba(255, 190, 130, 55);
             border-radius: 8px;
         """)
         kc_lay = QHBoxLayout(key_capsule)
@@ -579,8 +572,8 @@ class MainWindow(QMainWindow):
         capsule_bar = GlassCard()
         capsule_bar.setStyleSheet("""
             QFrame#glassCard {
-                background: rgba(28, 17, 10, 215);
-                border: 1px solid rgba(255, 195, 135, 50);
+                background: rgba(18, 11, 7, 145);
+                border: 1px solid rgba(255, 195, 125, 75);
                 border-radius: 20px;
             }
         """)
@@ -596,12 +589,12 @@ class MainWindow(QMainWindow):
         add_btn.setStyleSheet("""
             QPushButton {
                 color: #FFFFFF;
-                background: rgba(18, 10, 6, 210);
-                border: 1px solid rgba(255, 190, 130, 50);
+                background: rgba(22, 14, 8, 180);
+                border: 1px solid rgba(255, 195, 130, 80);
                 border-radius: 17px;
             }
             QPushButton:hover {
-                background: rgba(255, 200, 150, 30);
+                background: rgba(255, 200, 150, 45);
             }
         """)
         add_btn.clicked.connect(self._load_sample)
@@ -792,8 +785,8 @@ class MainWindow(QMainWindow):
         self.editor.setStyleSheet("""
             QTextEdit {
                 color: #FDF8F3;
-                background: rgba(14, 9, 6, 210);
-                border: 1px solid rgba(255, 195, 130, 42);
+                background: rgba(14, 9, 5, 175);
+                border: 1px solid rgba(255, 195, 130, 50);
                 border-radius: 14px;
                 padding: 12px;
                 selection-background-color: #A16207;
@@ -851,8 +844,8 @@ class MainWindow(QMainWindow):
             cell = QFrame()
             cell.setStyleSheet("""
                 QFrame {
-                    background: rgba(18, 11, 7, 195);
-                    border: 1px solid rgba(255, 190, 130, 40);
+                    background: rgba(18, 11, 7, 150);
+                    border: 1px solid rgba(255, 190, 130, 50);
                     border-radius: 14px;
                 }
             """)
