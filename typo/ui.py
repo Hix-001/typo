@@ -41,8 +41,8 @@ WALLPAPER_PATH = os.path.join(ASSETS_DIR, "glass_bg_amber.png")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 USER_FONTS_DIR = os.path.join(ROOT_DIR, "fonts")
 
-# Typography Hierarchy (Native Apple San Francisco Pro, SF Compact, Inter, System Fallbacks)
-FONT_FAMILIES = ["SF Pro", "SF Compact", "-apple-system", "BlinkMacSystemFont", "Inter", "Segoe UI", "sans-serif"]
+# Typography Hierarchy (Native Apple San Francisco Pro, SF Compact, New York, System Fallbacks)
+FONT_FAMILIES = ["SF Pro", "SF Compact", "Segoe UI", "Inter", "-apple-system", "sans-serif"]
 MONO_FAMILIES = ["Consolas", "Courier New", "monospace"]
 
 
@@ -52,7 +52,8 @@ def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mon
         f = QFont("Consolas", size, weight)
         f.setFamilies(MONO_FAMILIES)
     else:
-        f = QFont("SF Pro", size, weight)
+        f = QFont("SF Pro", size)
+        f.setWeight(weight)
         f.setFamilies(FONT_FAMILIES)
     return f
 
@@ -112,28 +113,28 @@ class IOSSwitch(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Track background
+        # Track background - matching iOS switch dimensions in reference
         track_rect = QRectF(1, 1, 36, 20)
         track_path = QPainterPath()
         track_path.addRoundedRect(track_rect, 10, 10)
 
         if self._checked:
-            track_color = QColor("#30D158")       # Apple Green
-            border_color = QColor(112, 242, 160, 200)
-            thumb_x = 19.0
+            track_color = QColor("#34C759")       # Authentic Apple Green
+            border_color = QColor(100, 225, 140, 140)
+            thumb_x = 18.5
         else:
-            track_color = QColor(68, 52, 43, 220) # Muted warm gray
-            border_color = QColor(120, 95, 80, 150)
-            thumb_x = 3.0
+            track_color = QColor(58, 42, 32, 210) # Warm dark espresso track
+            border_color = QColor(90, 70, 55, 120)
+            thumb_x = 2.5
 
         p.fillPath(track_path, QBrush(track_color))
         p.setPen(QPen(border_color, 1))
         p.drawPath(track_path)
 
-        # Thumb
-        thumb_rect = QRectF(thumb_x, 3.0, 16.0, 16.0)
+        # Crisp Circular Thumb
+        thumb_rect = QRectF(thumb_x, 2.5, 17.0, 17.0)
         p.setBrush(QBrush(QColor("#FFFFFF")))
-        p.setPen(QPen(QColor(255, 255, 255, 80), 0.5))
+        p.setPen(QPen(QColor(0, 0, 0, 40), 0.5))
         p.drawEllipse(thumb_rect)
         p.end()
 
@@ -155,39 +156,23 @@ class AmbientBackground(QWidget):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         r = self.rect()
 
-        # Base espresso background
+        # Rich espresso foundation
         base = QLinearGradient(0, 0, r.width(), r.height())
-        base.setColorAt(0.0, QColor("#120B08"))
-        base.setColorAt(0.45, QColor("#22120A"))
-        base.setColorAt(0.80, QColor("#170D08"))
-        base.setColorAt(1.0, QColor("#0D0705"))
+        base.setColorAt(0.0, QColor("#140A06"))
+        base.setColorAt(0.5, QColor("#201007"))
+        base.setColorAt(1.0, QColor("#0D0604"))
         p.fillRect(r, base)
 
-        # Wallpaper layer if present (clean high-res background matching reference)
+        # Wallpaper layer - direct pristine render of the radiant amber background
         if self._pixmap and not self._pixmap.isNull():
             scaled = self._pixmap.scaled(
                 r.size(),
                 Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                 Qt.TransformationMode.SmoothTransformation
             )
-            # Center the scaled wallpaper
             x = (r.width() - scaled.width()) // 2
             y = (r.height() - scaled.height()) // 2
             p.drawPixmap(x, y, scaled)
-
-        # Subtle warm radiant bloom enhancement matching the glowing reference streaks
-        blooms = [
-            (QPointF(r.width() * 0.42, r.height() * 0.12), r.width() * 0.50, QColor(255, 140, 40, 48)),
-            (QPointF(r.width() * 0.88, r.height() * 0.42), r.width() * 0.42, QColor(255, 175, 60, 35)),
-            (QPointF(r.width() * 0.18, r.height() * 0.88), r.width() * 0.40, QColor(255, 115, 30, 32)),
-        ]
-        for center, radius, color in blooms:
-            grad = QRadialGradient(center, radius)
-            grad.setColorAt(0, color)
-            edge = QColor(color)
-            edge.setAlpha(0)
-            grad.setColorAt(1, edge)
-            p.fillRect(r, QBrush(grad))
 
         p.end()
 
@@ -199,11 +184,10 @@ class GlassCard(QFrame):
     def __init__(self, parent=None, elevated=False):
         super().__init__(parent)
         self.setObjectName("glassCard")
-        # Translucent warm amber/dark obsidian glass matching the reference screenshot exactly:
-        # Subtle warm tint (alpha ~135-155) so the glorious radiant background shines through,
-        # bounded by a crisp, glowing warm golden specular rim border.
-        bg_col = "rgba(22, 13, 8, 155)" if elevated else "rgba(16, 10, 6, 138)"
-        border_col = "rgba(255, 205, 140, 85)" if elevated else "rgba(255, 190, 120, 65)"
+        # Translucent warm bronze/dark obsidian glass matching the reference screenshot exactly:
+        # Subtle warm tint (alpha ~110-120) with thin specular amber hairlines
+        bg_col = "rgba(22, 13, 8, 120)" if elevated else "rgba(16, 10, 6, 110)"
+        border_col = "rgba(255, 205, 140, 75)" if elevated else "rgba(255, 190, 120, 55)"
         self.setStyleSheet(f"""
             QFrame#glassCard {{
                 background: {bg_col};
@@ -217,7 +201,7 @@ def make_label(text, size=10, color="#FDF8F3", bold=False, mono=False):
     lbl = QLabel(text)
     weight = QFont.Weight.Bold if bold else QFont.Weight.Normal
     lbl.setFont(get_app_font(size, weight, mono=mono))
-    lbl.setStyleSheet(f"color: {color}; background: transparent;")
+    lbl.setStyleSheet(f"color: {color}; background: transparent; border: none; padding: 0;")
     return lbl
 
 
@@ -258,31 +242,31 @@ def make_pill_button(text, active=False, danger=False, primary=False):
         btn.setStyleSheet("""
             QPushButton {
                 color: #FFFFFF;
-                background: rgba(255, 160, 50, 60);
-                border: 1px solid rgba(255, 210, 140, 160);
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 160), stop:1 rgba(217, 119, 6, 120));
+                border: 1px solid rgba(255, 215, 150, 190);
                 border-radius: 16px;
                 padding: 0 14px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background: rgba(255, 175, 70, 80);
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(251, 191, 36, 190), stop:1 rgba(245, 158, 11, 150));
             }
         """)
     else:
         btn.setStyleSheet("""
             QPushButton {
                 color: #FDF8F3;
-                background: rgba(255, 210, 160, 22);
-                border: 1px solid rgba(255, 195, 130, 75);
+                background: rgba(30, 20, 14, 140);
+                border: 1px solid rgba(255, 195, 130, 60);
                 border-radius: 16px;
                 padding: 0 14px;
             }
             QPushButton:hover {
-                background: rgba(255, 220, 175, 40);
-                border-color: rgba(255, 225, 165, 120);
+                background: rgba(45, 30, 20, 180);
+                border-color: rgba(255, 225, 165, 100);
             }
             QPushButton:pressed {
-                background: rgba(255, 200, 150, 55);
+                background: rgba(25, 16, 10, 190);
             }
         """)
     return btn
@@ -295,8 +279,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
-        self.resize(1200, 780)
-        self.setMinimumSize(1040, 680)
+        self.resize(1024, 560)
+        self.setMinimumSize(1000, 540)
 
         # Core Engine & Automation Pipeline
         self.engine = TypingEngine()
@@ -325,12 +309,12 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.root)
 
         root_layout = QHBoxLayout(self.root)
-        root_layout.setContentsMargins(18, 16, 18, 16)
-        root_layout.setSpacing(16)
+        root_layout.setContentsMargins(14, 14, 14, 14)
+        root_layout.setSpacing(14)
 
-        # 1. Left Frosted Glass Sidebar Bay (~230px)
+        # 1. Left Frosted Glass Sidebar Bay (~204px)
         self.sidebar = self._build_sidebar()
-        self.sidebar.setFixedWidth(230)
+        self.sidebar.setFixedWidth(204)
         root_layout.addWidget(self.sidebar)
 
         # 2. Right Workspace Deck (Fluid Multi-Tab Area)
@@ -376,20 +360,21 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self):
         panel = GlassCard()
         col = QVBoxLayout(panel)
-        col.setContentsMargins(14, 16, 14, 16)
-        col.setSpacing(10)
+        col.setContentsMargins(12, 12, 12, 12)
+        col.setSpacing(6)
 
         # Top Profile Card
         profile = GlassCard(elevated=True)
+        profile.setFixedHeight(54)
         pr_lay = QHBoxLayout(profile)
-        pr_lay.setContentsMargins(12, 10, 12, 10)
-        pr_lay.setSpacing(10)
+        pr_lay.setContentsMargins(10, 8, 10, 8)
+        pr_lay.setSpacing(8)
 
         # Square 'T' Mark
         logo_box = QLabel("T")
         logo_box.setFixedSize(36, 36)
         logo_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_box.setFont(get_app_font(16, QFont.Weight.Bold))
+        logo_box.setFont(get_app_font(15, QFont.Weight.Bold))
         logo_box.setStyleSheet("""
             background: #24140B;
             color: #FFFFFF;
@@ -399,24 +384,25 @@ class MainWindow(QMainWindow):
         pr_lay.addWidget(logo_box)
 
         text_box = QVBoxLayout()
+        text_box.setContentsMargins(0, 0, 0, 0)
         text_box.setSpacing(2)
         text_box.addWidget(make_label("TYPO STUDIO", 9, "#F59E0B", bold=True))
-        text_box.addWidget(make_label("Frosted Obsidian", 10, "#FFFFFF", bold=True))
+        text_box.addWidget(make_label("Vision Liquid Glass", 8, "#D4C0B0", bold=False))
         pr_lay.addLayout(text_box, 1)
 
         # Green Beacon Dot
         beacon = QLabel("●")
-        beacon.setStyleSheet("color: #34D399; font-size: 11px; background: transparent;")
+        beacon.setStyleSheet("color: #34D399; font-size: 10px; background: transparent; border: none;")
         pr_lay.addWidget(beacon)
         col.addWidget(profile)
-        col.addSpacing(6)
+        col.addSpacing(4)
 
         # Navigation Groups
         self.nav_buttons = {}
         groups = [
             ("CONTROL DECK", [("⌂", "Control Deck", True, False)]),
             ("PRECISION INPUT ENGINE", [("💬", "Live Chat", False, False), ("🖼", "Images", False, False)]),
-            ("SEQUENCER", [("▦", "Sequencer Deck", False, True), ("⚡", "Biometrics Lab", False, False)]),
+            ("SEQUENCER", [("⊞", "Sequencer Deck", False, True), ("⚡", "Biometrics Lab", False, False)]),
             ("TOOLS", [("🧠", "Code Memory", False, False), ("📊", "Session Telemetry", False, False)]),
         ]
 
@@ -425,7 +411,7 @@ class MainWindow(QMainWindow):
             for icon_char, name, is_active, has_beacon in items:
                 btn = QPushButton()
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn.setMinimumHeight(36)
+                btn.setFixedHeight(32)
                 b_lay = QHBoxLayout(btn)
                 b_lay.setContentsMargins(10, 0, 10, 0)
                 b_lay.setSpacing(8)
@@ -447,8 +433,8 @@ class MainWindow(QMainWindow):
                 if is_active:
                     btn.setStyleSheet("""
                         QPushButton {
-                            background: rgba(255, 150, 40, 50);
-                            border: 1px solid rgba(255, 200, 130, 140);
+                            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 140), stop:1 rgba(217, 119, 6, 90));
+                            border: 1px solid rgba(255, 210, 140, 180);
                             border-radius: 12px;
                         }
                     """)
@@ -460,23 +446,24 @@ class MainWindow(QMainWindow):
                             border-radius: 12px;
                         }
                         QPushButton:hover {
-                            background: rgba(255, 215, 170, 22);
-                            border: 1px solid rgba(255, 190, 125, 55);
+                            background: rgba(255, 215, 170, 26);
+                            border: 1px solid rgba(255, 190, 125, 60);
                         }
                     """)
 
                 btn.clicked.connect(lambda checked=False, n=name: self._on_sidebar_nav_clicked(n))
                 self.nav_buttons[name] = (btn, title_lbl)
                 col.addWidget(btn)
-            col.addSpacing(4)
+            col.addSpacing(2)
 
         col.addStretch(1)
 
         # Bottom Hardware Hotkey Panel
         hk_card = GlassCard(elevated=True)
+        hk_card.setFixedHeight(84)
         hk_lay = QVBoxLayout(hk_card)
-        hk_lay.setContentsMargins(12, 12, 12, 12)
-        hk_lay.setSpacing(8)
+        hk_lay.setContentsMargins(10, 8, 10, 8)
+        hk_lay.setSpacing(6)
 
         hk_lay.addWidget(make_label("HARDWARE HOTKEY", 8, "#A88B77", bold=True))
 
@@ -488,9 +475,9 @@ class MainWindow(QMainWindow):
             border-radius: 8px;
         """)
         kc_lay = QHBoxLayout(key_capsule)
-        kc_lay.setContentsMargins(10, 6, 10, 6)
+        kc_lay.setContentsMargins(10, 5, 10, 5)
         kc_lay.addWidget(make_label("⌥", 11, "#F59E0B", bold=True))
-        self.lbl_hotkey_disp = make_label(f"  {self.current_hotkey_label}  ", 10, "#FFFFFF", bold=True, mono=True)
+        self.lbl_hotkey_disp = make_label(f"  {self.current_hotkey_label}  ", 9, "#FFFFFF", bold=True, mono=True)
         kc_lay.addWidget(self.lbl_hotkey_disp, 1)
         hk_lay.addWidget(key_capsule)
 
@@ -556,51 +543,63 @@ class MainWindow(QMainWindow):
         left = QVBoxLayout()
         left.setSpacing(3)
         left.addWidget(make_label("VISION OS // AUTOMATION STUDIO", 9, "#E09848", bold=True))
-        self.lbl_deck_title = make_label("Control Deck · Frosted Glass Sequencer", 17, "#FFFFFF", bold=True)
+        self.lbl_deck_title = make_label("Control Deck · Dynamic Glass Sequencer", 16, "#FFFFFF", bold=True)
         left.addWidget(self.lbl_deck_title)
         row.addLayout(left, 1)
 
         # Right Action Pills
         self.btn_target = make_pill_button("● Target: Standby")
+        self.btn_target.setStyleSheet("""
+            QPushButton {
+                color: #FFFFFF;
+                background: rgba(30, 20, 14, 140);
+                border: 1px solid rgba(255, 195, 130, 60);
+                border-radius: 16px;
+                padding: 0 16px;
+            }
+            QPushButton:hover {
+                background: rgba(45, 30, 20, 180);
+            }
+        """)
         row.addWidget(self.btn_target)
 
-        self.btn_sound = make_pill_button("◖)) Audio On")
+        self.btn_sound = make_pill_button("🔊 Audio On")
         self.btn_sound.clicked.connect(self._toggle_sound)
         row.addWidget(self.btn_sound)
 
-        self.btn_ghost_hud = make_pill_button("◉ Ghost HUD")
+        self.btn_ghost_hud = make_pill_button("👻 Ghost HUD")
         self.btn_ghost_hud.clicked.connect(self._toggle_ghost_hud)
         row.addWidget(self.btn_ghost_hud)
 
         return w
 
     def _build_capsule_bar(self):
-        capsule_bar = GlassCard()
+        capsule_bar = QFrame()
         capsule_bar.setStyleSheet("""
-            QFrame#glassCard {
-                background: rgba(18, 11, 7, 145);
-                border: 1px solid rgba(255, 195, 125, 75);
+            QFrame {
+                background: rgba(22, 13, 8, 130);
+                border: 1px solid rgba(255, 195, 125, 65);
                 border-radius: 20px;
             }
         """)
         row = QHBoxLayout(capsule_bar)
-        row.setContentsMargins(8, 6, 8, 6)
-        row.setSpacing(6)
+        row.setContentsMargins(6, 5, 8, 5)
+        row.setSpacing(4)
 
         # Plus (+) Circle Button
         add_btn = QPushButton("+")
-        add_btn.setFixedSize(34, 34)
+        add_btn.setFixedSize(30, 30)
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.setFont(get_app_font(13, QFont.Weight.Bold))
         add_btn.setStyleSheet("""
             QPushButton {
                 color: #FFFFFF;
-                background: rgba(22, 14, 8, 180);
-                border: 1px solid rgba(255, 195, 130, 80);
-                border-radius: 17px;
+                background: rgba(45, 26, 16, 170);
+                border: 1px solid rgba(255, 195, 130, 75);
+                border-radius: 15px;
             }
             QPushButton:hover {
-                background: rgba(255, 200, 150, 45);
+                background: rgba(255, 190, 120, 60);
             }
         """)
         add_btn.clicked.connect(self._load_sample)
@@ -612,17 +611,58 @@ class MainWindow(QMainWindow):
 
         for tname in tabs:
             is_active = (tname == "Primary Studio")
-            disp_text = f"●  {tname}" if is_active else tname
-            btn = make_pill_button(disp_text, active=is_active)
+            disp_text = f"● {tname}" if is_active else tname
+            btn = QPushButton(disp_text)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setFont(get_app_font(9, QFont.Weight.DemiBold if is_active else QFont.Weight.Normal))
+            btn.setFixedHeight(30)
+            if is_active:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        color: #FFFFFF;
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 190), stop:1 rgba(217, 119, 6, 150));
+                        border: 1px solid rgba(255, 215, 150, 200);
+                        border-radius: 15px;
+                        padding: 0 14px;
+                    }
+                """)
+            else:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        color: #D6C2B0;
+                        background: transparent;
+                        border: none;
+                        padding: 0 12px;
+                    }
+                    QPushButton:hover {
+                        color: #FFFFFF;
+                        background: rgba(255, 200, 140, 25);
+                        border-radius: 15px;
+                    }
+                """)
             btn.clicked.connect(lambda checked=False, tn=tname: self._select_tab(tn))
             self.tab_buttons[tname] = btn
             row.addWidget(btn)
 
         row.addStretch(1)
 
-        # Rightmost Frosted Glass Pill
-        frosted_pill = make_pill_button("❄ Frosted Glass")
-        row.addWidget(frosted_pill)
+        # Rightmost Reference Pill: Liquid Glass
+        liquid_pill = QPushButton("💧 Liquid Glass")
+        liquid_pill.setFont(get_app_font(9, QFont.Weight.DemiBold))
+        liquid_pill.setFixedHeight(30)
+        liquid_pill.setStyleSheet("""
+            QPushButton {
+                color: #FDF8F3;
+                background: rgba(40, 24, 15, 150);
+                border: 1px solid rgba(255, 195, 130, 60);
+                border-radius: 15px;
+                padding: 0 14px;
+            }
+            QPushButton:hover {
+                background: rgba(60, 36, 22, 190);
+            }
+        """)
+        row.addWidget(liquid_pill)
         return capsule_bar
 
     # ==========================================
@@ -661,13 +701,13 @@ class MainWindow(QMainWindow):
 
         h1 = QHBoxLayout()
         h1.addWidget(make_label("Typo & Mistake Rate", 12, "#FFFFFF", bold=True), 1)
-        self.lbl_mistake_badge = make_label("1.5%", 10, "#FFD18B", bold=True, mono=True)
+        self.lbl_mistake_badge = make_label("1.5%", 10, "#FDE68A", bold=True, mono=True)
         self.lbl_mistake_badge.setStyleSheet("""
-            color: #FFD18B;
-            background: rgba(255, 165, 55, 45);
-            border: 1px solid rgba(255, 200, 120, 85);
-            border-radius: 9px;
-            padding: 3px 10px;
+            color: #FDE68A;
+            background: rgba(245, 158, 11, 45);
+            border: 1px solid rgba(251, 191, 36, 120);
+            border-radius: 12px;
+            padding: 3px 12px;
         """)
         h1.addWidget(self.lbl_mistake_badge)
         c1_lay.addLayout(h1)
@@ -714,13 +754,13 @@ class MainWindow(QMainWindow):
 
         h2 = QHBoxLayout()
         h2.addWidget(make_label("Safety Focus Countdown", 12, "#FFFFFF", bold=True), 1)
-        self.lbl_safety_badge = make_label("3.0s", 10, "#F472B6", bold=True, mono=True)
+        self.lbl_safety_badge = make_label("3.0s", 10, "#FBCFE8", bold=True, mono=True)
         self.lbl_safety_badge.setStyleSheet("""
-            color: #F472B6;
-            background: rgba(236, 72, 153, 35);
-            border: 1px solid rgba(244, 114, 182, 85);
-            border-radius: 9px;
-            padding: 3px 10px;
+            color: #FBCFE8;
+            background: rgba(219, 39, 119, 45);
+            border: 1px solid rgba(244, 114, 182, 120);
+            border-radius: 12px;
+            padding: 3px 12px;
         """)
         h2.addWidget(self.lbl_safety_badge)
         c2_lay.addLayout(h2)
@@ -764,8 +804,8 @@ class MainWindow(QMainWindow):
     def _build_code_buffer_card(self):
         card = GlassCard()
         col = QVBoxLayout(card)
-        col.setContentsMargins(18, 14, 18, 14)
-        col.setSpacing(10)
+        col.setContentsMargins(18, 12, 18, 12)
+        col.setSpacing(6)
 
         # Header Row
         hdr = QHBoxLayout()
@@ -774,11 +814,11 @@ class MainWindow(QMainWindow):
         hdr.addWidget(beacon)
         hdr.addWidget(make_label("Live Code Buffer & Non-Destructive Inspection", 12, "#FFFFFF", bold=True), 1)
 
-        self.btn_refresh = make_pill_button("↻  Refresh")
+        self.btn_refresh = make_pill_button("↻ Refresh")
         self.btn_refresh.clicked.connect(self._refresh_clipboard)
         hdr.addWidget(self.btn_refresh)
 
-        self.btn_load_sample = make_pill_button("▣  Load Sample Code")
+        self.btn_load_sample = make_pill_button("📁 Load Sample Code")
         self.btn_load_sample.clicked.connect(self._load_sample)
         hdr.addWidget(self.btn_load_sample)
         col.addLayout(hdr)
@@ -787,14 +827,14 @@ class MainWindow(QMainWindow):
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(False)
         self.editor.setFont(get_app_font(10, mono=True))
-        self.editor.setMinimumHeight(130)
+        self.editor.setMinimumHeight(105)
         self.editor.setStyleSheet("""
             QTextEdit {
                 color: #FDF8F3;
-                background: rgba(14, 9, 5, 175);
-                border: 1px solid rgba(255, 195, 130, 50);
+                background: rgba(12, 7, 4, 130);
+                border: 1px solid rgba(255, 195, 130, 45);
                 border-radius: 14px;
-                padding: 12px;
+                padding: 10px 12px;
                 selection-background-color: #A16207;
             }
             QScrollBar:vertical {
@@ -823,8 +863,8 @@ class MainWindow(QMainWindow):
     def _build_stealth_matrix_card(self):
         card = GlassCard()
         col = QVBoxLayout(card)
-        col.setContentsMargins(18, 14, 18, 14)
-        col.setSpacing(10)
+        col.setContentsMargins(18, 12, 18, 12)
+        col.setSpacing(8)
 
         # Header Row
         hdr = QHBoxLayout()
@@ -842,40 +882,42 @@ class MainWindow(QMainWindow):
             ("🖱", "Simulated Cursor Wandering", "Subtle mouse drift with cubic easing defeats webcam gaze & mouse anomaly sensors", True, 0, 0),
             ("⚡", "Complexity Cadence Throttler", "Throttles to 35–50 WPM on nested DP & bitwise logic; fast on boilerplate", True, 0, 1),
             ("</>", "Incremental Code Construction", "Outlines signature stub first, then navigates back inside function", False, 1, 0),
-            ("≣", "Selection & Refactoring Simulation", "Simulates Shift+Left selection & backspace replacement of variable", True, 1, 1),
+            ("☰", "Selection & Refactoring Simulation", "Simulates Shift+Left selection & backspace replacement of variable", True, 1, 1),
         ]
 
         self.switches = {}
         for icon_char, title, desc, default_val, r, c in features:
             cell = QFrame()
+            cell.setFixedHeight(54)
             cell.setStyleSheet("""
                 QFrame {
-                    background: rgba(18, 11, 7, 150);
-                    border: 1px solid rgba(255, 190, 130, 50);
+                    background: rgba(22, 13, 8, 120);
+                    border: 1px solid rgba(255, 190, 130, 45);
                     border-radius: 14px;
                 }
             """)
             c_lay = QHBoxLayout(cell)
-            c_lay.setContentsMargins(12, 10, 12, 10)
+            c_lay.setContentsMargins(12, 6, 12, 6)
             c_lay.setSpacing(10)
 
             # Circular Icon Box
             icon_box = QLabel(icon_char)
-            icon_box.setFixedSize(36, 36)
+            icon_box.setFixedSize(34, 34)
             icon_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
             icon_box.setStyleSheet("""
-                color: #FFD18B;
+                color: #FFE0A3;
                 font-size: 14px;
-                background: rgba(255, 185, 105, 26);
-                border: 1px solid rgba(255, 205, 130, 48);
-                border-radius: 18px;
+                background: rgba(45, 28, 18, 160);
+                border: 1px solid rgba(255, 205, 130, 60);
+                border-radius: 17px;
             """)
             c_lay.addWidget(icon_box)
 
             # Text
             t_col = QVBoxLayout()
+            t_col.setContentsMargins(0, 0, 0, 0)
             t_col.setSpacing(2)
-            t_col.addWidget(make_label(title, 10, "#FFFFFF", bold=True))
+            t_col.addWidget(make_label(title, 9, "#FFFFFF", bold=True))
             d_lbl = make_label(desc, 8, "#BFA894")
             d_lbl.setWordWrap(True)
             t_col.addWidget(d_lbl)
@@ -1000,29 +1042,30 @@ class MainWindow(QMainWindow):
         self.active_tab_name = tab_name
         for name, btn in self.tab_buttons.items():
             is_active = (name == tab_name)
-            btn.setText(f"●  {name}" if is_active else name)
+            btn.setText(f"● {name}" if is_active else name)
+            btn.setFont(get_app_font(9, QFont.Weight.DemiBold if is_active else QFont.Weight.Normal))
             if is_active:
                 btn.setStyleSheet("""
                     QPushButton {
-                        color: #FFE3BA;
-                        background: rgba(255, 165, 65, 42);
-                        border: 1px solid rgba(255, 195, 120, 100);
-                        border-radius: 16px;
+                        color: #FFFFFF;
+                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 190), stop:1 rgba(217, 119, 6, 150));
+                        border: 1px solid rgba(255, 215, 150, 200);
+                        border-radius: 15px;
                         padding: 0 14px;
-                        font-weight: bold;
                     }
                 """)
             else:
                 btn.setStyleSheet("""
                     QPushButton {
-                        color: #FDF8F3;
-                        background: rgba(255, 215, 170, 20);
-                        border: 1px solid rgba(255, 190, 125, 60);
-                        border-radius: 16px;
-                        padding: 0 14px;
+                        color: #D6C2B0;
+                        background: transparent;
+                        border: none;
+                        padding: 0 12px;
                     }
                     QPushButton:hover {
-                        background: rgba(255, 220, 180, 36);
+                        color: #FFFFFF;
+                        background: rgba(255, 200, 140, 25);
+                        border-radius: 15px;
                     }
                 """)
 
