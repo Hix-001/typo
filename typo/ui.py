@@ -336,7 +336,7 @@ class TypoApp(ctk.CTk):
             pill = ctk.CTkFrame(
                 nav_menu,
                 fg_color=GLASS_CARD if active else "transparent",
-                border_color=GLASS_CARD_BORDER_GLOW if active else "transparent",
+                border_color=GLASS_CARD_BORDER_GLOW if active else GLASS_SIDEBAR,
                 border_width=1 if active else 0,
                 corner_radius=12,
                 height=36
