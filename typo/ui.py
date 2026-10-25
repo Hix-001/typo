@@ -2,12 +2,12 @@
 TYPO® — Studio Glass Edition (Apple visionOS & macOS Liquid Glass)
 High-fidelity, responsive CustomTkinter UI for precision keystroke automation.
 
-Design Specs:
-- Translucent obsidian glass palette with optical specular borders
-- Dynamic responsiveness (auto-adjusts columns & padding on window resize)
-- True Apple visionOS switch toggles, capsule faders, and segmented status deck
-- Monospace inset code buffer with real-time statistics
-- Global hotkey, engine callbacks, and full test_ui.py compatibility
+Engineered with:
+- Native Windows 10 & 11 Acrylic Frosted Blur via SetWindowCompositionAttribute & DWM
+- Translucent obsidian glass palette with specular rim refraction borders
+- Fluid 60 FPS progress bar linear interpolation (lerp) animation
+- Clean, proportional Apple typography hierarchy (Segoe UI & Consolas)
+- Zero-leak timer lifecycle tracking and O(1) clipboard memory fingerprinting
 """
 
 import os
@@ -16,6 +16,7 @@ import time
 import queue
 import winsound
 import ctypes
+from ctypes import wintypes
 from typing import Optional
 import customtkinter as ctk
 
@@ -24,72 +25,126 @@ from typo.win32_api import GlobalHotKeyManager, PRIMARY_HOTKEY_LABEL
 from typo.clipboard import get_current_clipboard, analyze_clipboard_content, set_test_clipboard_text
 
 # ==========================================
-# Apple Glass Tokens & Color Space
+# Apple Liquid Glass Tokens & Color Space
 # ==========================================
-GLASS_BG = "#0B0E14"               # Deep obsidian canvas
-GLASS_SIDEBAR = "#0F131C"          # Frosted glass sidebar bay
-GLASS_CARD = "#141924"             # Elevated frosted squircle card
-GLASS_CARD_HOVER = "#1A2130"       # Responsive hover highlight
-GLASS_CARD_BORDER = "#232A3B"      # 1px hairline specular edge
-GLASS_CARD_BORDER_GLOW = "#343E56" # Elevated specular highlight
-GLASS_INSET = "#0D1017"            # Inset glass well
-GLASS_INSET_BORDER = "#1A1F2C"     # Inset hairline border
+# Translucent Obsidian Glass Bases
+GLASS_BG = "#070A12"               # Deep obsidian liquid canvas
+GLASS_SIDEBAR = "#0C101A"          # Frosted glass sidebar bay
+GLASS_SIDEBAR_BORDER = "#1F2638"   # Sidebar glass divider
 
-# Capsule & Pill Material
-GLASS_PILL_CONTAINER = "#131722"
-GLASS_PILL_BORDER = "#252C3D"
-GLASS_PILL_ACTIVE_BORDER = "#266B3F"
+# Frosted Glass Cards (Squircle Slices)
+GLASS_CARD = "#121725"             # Frosted visionOS squircle card
+GLASS_CARD_HOVER = "#181E30"       # Elevated glass refraction on hover
+GLASS_CARD_BORDER = "#252F45"      # Specular glass bevel border (1px hairline)
+GLASS_CARD_BORDER_GLOW = "#3A4768" # Specular rim highlight
 
-# Apple Accent Palette
-APPLE_GREEN = "#30D158"            # visionOS Electric Green (Active / Ready)
-APPLE_GREEN_HOVER = "#38E662"
-APPLE_GREEN_TINT = "#112618"       # Ambient glow well
-APPLE_BLUE = "#0A84FF"             # System Blue (Metrics / Telemetry)
-APPLE_BLUE_TINT = "#0E223D"
-APPLE_CORAL = "#FF453A"            # System Red / Coral (Abort)
-APPLE_CORAL_TINT = "#2D1416"
-APPLE_AMBER = "#FF9F0A"            # Warning / Paused
-APPLE_AMBER_TINT = "#2D1E09"
-APPLE_PURPLE = "#BF5AF2"           # Secondary Accents
-APPLE_PURPLE_TINT = "#261536"
-APPLE_TRACK = "#1E2433"            # Slider recessed track
+# Inset Glass Wells (Code Buffer & Telemetry)
+GLASS_INSET = "#080B12"            # Recessed dark glass well
+GLASS_INSET_BORDER = "#1A2132"     # Inset boundary
 
-# High-Legibility Typography
-TEXT_PRIMARY = "#F5F5F7"           # Apple Off-White
-TEXT_SECONDARY = "#98A1B2"         # Secondary descriptive text
-TEXT_MUTED = "#5A6478"             # Metadata & bounds
-TEXT_DIM = "#373E4F"
+# Floating Glass Pill Bar & Capsules
+GLASS_PILL_BAR = "#131826"         # Floating capsule bar
+GLASS_PILL_BAR_BORDER = "#242D42"  # Capsule bar rim
+GLASS_PILL = "#161C2C"             # Standby capsule item
+GLASS_PILL_BORDER = "#28334A"
+GLASS_PILL_ACTIVE = "#0F2619"      # Active Apple Electric Green pill
+GLASS_PILL_ACTIVE_BORDER = "#205C36"
 
+# Apple visionOS Luminous Accents
+APPLE_GREEN = "#30D158"            # Apple visionOS electric neon green
+APPLE_GREEN_HOVER = "#38E564"
+APPLE_GREEN_GLOW = "#0E2916"       # Luminous green glow well
+APPLE_BLUE = "#0A84FF"             # Apple system electric blue
+APPLE_BLUE_GLOW = "#0D2240"
+APPLE_AMBER = "#FF9F0A"            # Apple system warning amber
+APPLE_AMBER_GLOW = "#33200B"
+APPLE_CORAL = "#FF453A"            # Apple system coral / abort
+APPLE_CORAL_GLOW = "#331518"
+APPLE_PURPLE = "#BF5AF2"           # Apple system electric purple
+APPLE_PURPLE_GLOW = "#281335"
+APPLE_TRACK = "#181E2E"            # Recessed capsule slider track
+
+# Apple Modern High-Legibility Typography Colors
+TEXT_PRIMARY = "#FFFFFF"           # Crisp pure white
+TEXT_SECONDARY = "#A1A8BA"         # Apple secondary system text
+TEXT_MUTED = "#636C82"             # Muted annotations & technical indicators
+TEXT_DIM = "#323B50"               # Subtle glass grooves
+
+# Typography Stack (Native High-Resolution Typography)
 FONT_FAMILY = "Segoe UI"
 FONT_MONO_FAMILY = "Consolas"
 
 
-def apply_dwm_glass(window):
-    """Enables Windows 11 DWM dark titlebar with rounded squircle composition."""
+# ==========================================
+# Native Windows 10 & 11 Acrylic Blur Engine
+# ==========================================
+class ACCENT_POLICY(ctypes.Structure):
+    _fields_ = [
+        ("AccentState", ctypes.c_int),      # 4 = ACCENT_ENABLE_ACRYLICBLURBEHIND, 3 = ACCENT_ENABLE_BLURBEHIND
+        ("AccentFlags", ctypes.c_int),      # 2
+        ("GradientColor", ctypes.c_int),    # ARGB (e.g. 0xCC090C14: CC alpha, 090C14 dark tint)
+        ("AnimationId", ctypes.c_int),      # 0
+    ]
+
+class WINDOWCOMPOSITIONATTRIBDATA(ctypes.Structure):
+    _fields_ = [
+        ("Attribute", ctypes.c_int),        # WCA_ACCENT_POLICY = 19
+        ("Data", ctypes.c_void_p),
+        ("SizeOfData", ctypes.c_size_t),
+    ]
+
+
+def apply_native_glassmorphism(window):
+    """
+    Enables native hardware-accelerated Acrylic / Blur-behind on Windows 10 (1803+)
+    and Windows 11, with immersive dark mode titlebar and smooth corner composition.
+    """
     try:
         if not getattr(window, "winfo_exists", None) or not window.winfo_exists():
             return
         window.update_idletasks()
         inner_hwnd = window.winfo_id()
-        top_hwnd = ctypes.windll.user32.GetAncestor(inner_hwnd, 2)  # GA_ROOT
-        if top_hwnd:
-            dwmapi = ctypes.windll.dwmapi
-            dark_val = ctypes.c_int(1)
-            dwmapi.DwmSetWindowAttribute(top_hwnd, 20, ctypes.byref(dark_val), ctypes.sizeof(dark_val))
-            round_val = ctypes.c_int(2)
-            dwmapi.DwmSetWindowAttribute(top_hwnd, 33, ctypes.byref(round_val), ctypes.sizeof(round_val))
-    except Exception:
-        pass
+        top_hwnd = ctypes.windll.user32.GetAncestor(inner_hwnd, 2) or inner_hwnd
+
+        # 1. Windows DWM Immersive Dark Mode (DWMWA_USE_IMMERSIVE_DARK_MODE = 20)
+        dwmapi = ctypes.windll.dwmapi
+        dark_val = ctypes.c_int(1)
+        dwmapi.DwmSetWindowAttribute(top_hwnd, 20, ctypes.byref(dark_val), ctypes.sizeof(dark_val))
+
+        # 2. Windows 11 Rounded Squircle Corners (DWMWCP_ROUND = 2) if supported
+        round_val = ctypes.c_int(2)
+        dwmapi.DwmSetWindowAttribute(top_hwnd, 33, ctypes.byref(round_val), ctypes.sizeof(round_val))
+
+        # 3. Native Windows 10 & 11 Acrylic Frosted Glass Blur (SetWindowCompositionAttribute)
+        if hasattr(ctypes.windll.user32, "SetWindowCompositionAttribute"):
+            # AccentState = 4 (ACCENT_ENABLE_ACRYLICBLURBEHIND) with dark obsidian tint
+            # 0xCC080B14 -> alpha ~80%, RGB #080B14
+            policy = ACCENT_POLICY(4, 2, 0xCC080B14, 0)
+            data = WINDOWCOMPOSITIONATTRIBDATA(19, ctypes.addressof(policy), ctypes.sizeof(policy))
+            res = ctypes.windll.user32.SetWindowCompositionAttribute(top_hwnd, ctypes.byref(data))
+            if res != 1:
+                # Fallback to standard blur behind if acrylic is disabled
+                policy.AccentState = 3
+                ctypes.windll.user32.SetWindowCompositionAttribute(top_hwnd, ctypes.byref(data))
+
+        # 4. Set delicate window alpha for subtle frosted glass transparency
+        window.wm_attributes("-alpha", 0.97)
+
+    except Exception as e:
+        print(f"[TYPO DWM] Glassmorphism initialization note: {e}")
 
 
+# ==========================================
+# Main Studio Glass Application
+# ==========================================
 class TypoApp(ctk.CTk):
     def __init__(self, init_hotkeys: bool = True):
         super().__init__()
 
-        # Window Setup
-        self.title("Typo — Studio Glass Edition")
-        self.geometry("1120x860")
-        self.minsize(860, 680)
+        # Window Shell Configuration
+        self.title("TYPO® — Studio Glass Edition")
+        self.geometry("1100x820")
+        self.minsize(980, 700)
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
         self.configure(fg_color=GLASS_BG)
@@ -105,9 +160,9 @@ class TypoApp(ctk.CTk):
         self.sound_enabled = True
         self.ghost_hud = None
 
-        # Responsive Layout State
-        self._last_window_width = 1120
-        self._is_compact_mode = False
+        # Smooth Animation Engine State (60 FPS Progress Lerp)
+        self._target_progress = 0.0
+        self._current_progress = 0.0
 
         # Bind Engine Callbacks
         self.engine.on_state_change = self._queue_state_change
@@ -115,23 +170,21 @@ class TypoApp(ctk.CTk):
         self.engine.on_countdown = self._queue_countdown
         self.engine.on_error = self._queue_error
 
-        # Main Layout: Sidebar + Canvas Workspace
+        # Build Studio Glass Layout (Sidebar + Fluid Workspace)
         self._build_main_shell()
 
-        # Bind Window Resize for Dynamic Adaptation
-        self.bind("<Configure>", self._on_window_resize)
-
-        # Initialize Global Hotkey
+        # Initialize Global Hotkey (Alt + Z + T)
         if init_hotkeys:
             self._init_hotkeys()
 
-        # Tracked background loops (zero leak timer dispatch)
-        self._schedule(35, self._process_ui_queue)
+        # Scheduled Background Loops & 60 FPS Animation Ticker
+        self._schedule(30, self._process_ui_queue)
+        self._schedule(16, self._animate_tick)
         self._schedule(1000, self._periodic_clipboard_check)
-        self._schedule(400, self._refresh_clipboard_view)
-        self._schedule(150, lambda: apply_dwm_glass(self))
+        self._schedule(350, self._refresh_clipboard_view)
+        self._schedule(120, lambda: apply_native_glassmorphism(self))
 
-        # Close hook
+        # Clean Window Closure Protocol
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _schedule(self, delay: int, callback):
@@ -147,274 +200,295 @@ class TypoApp(ctk.CTk):
         self._after_ids.add(after_id)
         return after_id
 
-    # ==========================================
-    # Responsive Architecture & Window Sizing
-    # ==========================================
-    def _on_window_resize(self, event):
-        """Dynamically adapt layout when resizing the window."""
-        if event.widget != self:
+    def _animate_tick(self):
+        """
+        60 FPS Smooth Linear Interpolation (Lerp) Animation Ticker.
+        Eases the progress bar with fluid liquid-glass inertia.
+        """
+        if getattr(self, "_is_closing", False) or not self.winfo_exists():
             return
 
-        width = event.width
-        # Only trigger reflow on significant width changes
-        if abs(width - self._last_window_width) < 25:
-            return
+        diff = self._target_progress - self._current_progress
+        if abs(diff) > 0.0005:
+            self._current_progress += diff * 0.20
+            self.progress_bar.set(self._current_progress)
 
-        self._last_window_width = width
-        should_compact = width < 980
-
-        if should_compact != self._is_compact_mode:
-            self._is_compact_mode = should_compact
-            self._reflow_responsive_layout(should_compact)
-
-    def _reflow_responsive_layout(self, compact: bool):
-        """Adapts grids and paddings between standard dual-column and compact single-column."""
-        if compact:
-            # Collapse grids into 1 column for tight widths
-            self.faders_grid.grid_columnconfigure(1, weight=0)
-            self.f2_card.grid(row=1, column=0, sticky="ew", padx=0, pady=4)
-            self.f3_card.grid(row=2, column=0, sticky="ew", padx=0, pady=4)
-            self.f4_card.grid(row=3, column=0, sticky="ew", padx=0, pady=4)
-
-            self.sw_grid.grid_columnconfigure(1, weight=0)
-            for idx, sw_frame in enumerate(self.toggle_frames):
-                sw_frame.grid(row=idx, column=0, sticky="ew", padx=0, pady=3)
-        else:
-            # Restore spacious 2-column layout
-            self.faders_grid.grid_columnconfigure(1, weight=1)
-            self.f1_card.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=4)
-            self.f2_card.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=4)
-            self.f3_card.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=4)
-            self.f4_card.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=4)
-
-            self.sw_grid.grid_columnconfigure(1, weight=1)
-            for idx, sw_frame in enumerate(self.toggle_frames):
-                row = idx // 2
-                col = idx % 2
-                sw_frame.grid(row=row, column=col, sticky="ew", padx=(0 if col == 0 else 6, 6 if col == 0 else 0), pady=3)
+        self._schedule(16, self._animate_tick)
 
     # ==========================================
-    # Main Shell Architecture
+    # Main Shell Architecture (Sidebar + Canvas)
     # ==========================================
     def _build_main_shell(self):
         self.root_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         self.root_container.pack(fill="both", expand=True)
 
         # ------------------------------------------
-        # 1. Frosted Glass Sidebar Bay
+        # 1. Frosted Glass Sidebar (Island Navigation)
         # ------------------------------------------
         self.sidebar = ctk.CTkFrame(
             self.root_container,
-            width=250,
+            width=255,
             fg_color=GLASS_SIDEBAR,
-            border_color=GLASS_CARD_BORDER,
+            border_color=GLASS_SIDEBAR_BORDER,
             border_width=1,
             corner_radius=0
         )
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
 
-        # App Brand Capsule
+        # Sidebar Header: Apple Vision Brand & Studio Identity
         brand_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        brand_frame.pack(fill="x", padx=18, pady=(22, 14))
+        brand_frame.pack(fill="x", padx=18, pady=(20, 14))
 
-        app_card = ctk.CTkFrame(
+        # Profile Pill Box
+        profile_row = ctk.CTkFrame(
             brand_frame,
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=16,
+            corner_radius=18,
             height=48
         )
-        app_card.pack(fill="x")
-        app_card.pack_propagate(False)
+        profile_row.pack(fill="x", pady=(0, 12))
+        profile_row.pack_propagate(False)
 
-        logo_box = ctk.CTkFrame(
-            app_card,
-            width=32,
-            height=32,
+        # Logo Avatar Circle
+        avatar_box = ctk.CTkFrame(
+            profile_row,
+            width=34,
+            height=34,
             fg_color=GLASS_INSET,
             border_color=GLASS_CARD_BORDER_GLOW,
             border_width=1,
-            corner_radius=10
+            corner_radius=17
         )
-        logo_box.pack(side="left", padx=(8, 10))
-        logo_box.pack_propagate(False)
+        avatar_box.pack(side="left", padx=(8, 10))
+        avatar_box.pack_propagate(False)
 
         ctk.CTkLabel(
-            logo_box,
-            text="⌥",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
-            text_color=APPLE_GREEN
+            avatar_box,
+            text="",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=16, weight="bold"),
+            text_color=TEXT_PRIMARY
         ).place(relx=0.5, rely=0.5, anchor="center")
 
-        id_text = ctk.CTkFrame(app_card, fg_color="transparent")
-        id_text.pack(side="left", fill="y", pady=5)
+        user_text_frame = ctk.CTkFrame(profile_row, fg_color="transparent")
+        user_text_frame.pack(side="left", fill="y", pady=5)
 
         ctk.CTkLabel(
-            id_text,
-            text="Typo Studio",
+            user_text_frame,
+            text="TYPO STUDIO",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=APPLE_GREEN
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            user_text_frame,
+            text="Vision Liquid Glass",
             font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
             text_color=TEXT_PRIMARY
         ).pack(anchor="w")
 
+        # Live Status Beacon Dot
         ctk.CTkLabel(
-            id_text,
-            text="Glass Automation",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9),
-            text_color=TEXT_SECONDARY
+            profile_row,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13),
+            text_color=APPLE_GREEN
+        ).pack(side="right", padx=(0, 14))
+
+        # Large Section Headline
+        title_box = ctk.CTkFrame(brand_frame, fg_color="transparent")
+        title_box.pack(fill="x", pady=(2, 0))
+
+        ctk.CTkLabel(
+            title_box,
+            text="Control Deck",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=18, weight="bold"),
+            text_color=TEXT_PRIMARY
         ).pack(anchor="w")
 
         ctk.CTkLabel(
-            app_card,
-            text="●",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9),
-            text_color=APPLE_GREEN
-        ).pack(side="right", padx=(0, 12))
+            title_box,
+            text="PRECISION INPUT ENGINE",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text_color=TEXT_MUTED
+        ).pack(anchor="w", pady=(2, 0))
 
-        # Cadence Glance Widget
-        v_card = ctk.CTkFrame(
+        # Specular Hairline Glass Divider
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=GLASS_CARD_BORDER).pack(fill="x", padx=16, pady=(10, 14))
+
+        # Live Velocity Glass Card
+        cadence_card = ctk.CTkFrame(
             self.sidebar,
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=16
+            corner_radius=18
         )
-        v_card.pack(fill="x", padx=16, pady=(8, 14))
+        cadence_card.pack(fill="x", padx=16, pady=(0, 16))
 
-        v_inner = ctk.CTkFrame(v_card, fg_color="transparent")
-        v_inner.pack(fill="x", padx=14, pady=12)
+        cad_inner = ctk.CTkFrame(cadence_card, fg_color="transparent")
+        cad_inner.pack(fill="x", padx=14, pady=12)
 
-        v_head = ctk.CTkFrame(v_inner, fg_color="transparent")
-        v_head.pack(fill="x")
+        cad_hdr = ctk.CTkFrame(cad_inner, fg_color="transparent")
+        cad_hdr.pack(fill="x")
 
         ctk.CTkLabel(
-            v_head,
-            text="Current Pace",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            cad_hdr,
+            text="Active Velocity",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
             text_color=TEXT_SECONDARY
         ).pack(side="left")
 
-        ctk.CTkLabel(
-            v_head,
-            text="STANDBY",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=8, weight="bold"),
+        # Luminous Green Status Pill
+        glow_pill = ctk.CTkLabel(
+            cad_hdr,
+            text="● LIVE",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
             text_color=APPLE_GREEN,
-            fg_color=APPLE_GREEN_TINT,
-            corner_radius=5,
-            padx=6,
-            pady=1
-        ).pack(side="right")
+            fg_color=APPLE_GREEN_GLOW,
+            border_color=GLASS_PILL_ACTIVE_BORDER,
+            border_width=1,
+            corner_radius=8,
+            padx=7,
+            pady=2
+        )
+        glow_pill.pack(side="right")
 
         self.lbl_sidebar_wpm = ctk.CTkLabel(
-            v_inner,
+            cad_inner,
             text="80 WPM",
             font=ctk.CTkFont(family=FONT_FAMILY, size=24, weight="bold"),
             text_color=TEXT_PRIMARY
         )
-        self.lbl_sidebar_wpm.pack(anchor="w", pady=(4, 1))
+        self.lbl_sidebar_wpm.pack(anchor="w", pady=(6, 2))
 
-        ctk.CTkLabel(
-            v_inner,
-            text="Smooth Human Profile",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9),
-            text_color=TEXT_MUTED
-        ).pack(anchor="w")
+        # Velocity Scale Annotation
+        scale_row = ctk.CTkFrame(cad_inner, fg_color="transparent")
+        scale_row.pack(fill="x", pady=(2, 0))
 
-        # Sidebar Navigation Pill Bay
+        ctk.CTkLabel(scale_row, text="40", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(scale_row, text="60", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left", expand=True)
+        ctk.CTkLabel(scale_row, text="80", font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"), text_color=APPLE_GREEN).pack(side="left", expand=True)
+        ctk.CTkLabel(scale_row, text="120", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left", expand=True)
+        ctk.CTkLabel(scale_row, text="180", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="right")
+
+        # Sidebar Navigation Pill Menu
         nav_menu = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        nav_menu.pack(fill="x", padx=14, pady=(2, 0))
+        nav_menu.pack(fill="x", padx=14)
 
         nav_items = [
-            ("Sequencer Deck", True),
-            ("Biometrics & Noise", False),
-            ("Code Memory", False),
-            ("Session Telemetry", False),
+            ("Sequencer Deck", True, "🎛"),
+            ("Biometrics Lab", False, "⚡"),
+            ("Code Memory", False, "📋"),
+            ("Session Telemetry", False, "📊"),
         ]
 
-        for title, active in nav_items:
-            pill = ctk.CTkFrame(
+        for text, is_active, icon in nav_items:
+            bg_col = GLASS_CARD if is_active else "transparent"
+            text_col = TEXT_PRIMARY if is_active else TEXT_SECONDARY
+            border_col = GLASS_CARD_BORDER_GLOW if is_active else GLASS_SIDEBAR
+            border_w = 1 if is_active else 0
+
+            row_frame = ctk.CTkFrame(
                 nav_menu,
-                fg_color=GLASS_CARD if active else "transparent",
-                border_color=GLASS_CARD_BORDER_GLOW if active else GLASS_SIDEBAR,
-                border_width=1 if active else 0,
-                corner_radius=12,
-                height=36
+                fg_color=bg_col,
+                border_color=border_col,
+                border_width=border_w,
+                corner_radius=14,
+                height=40
             )
-            pill.pack(fill="x", pady=2)
-            pill.pack_propagate(False)
+            row_frame.pack(fill="x", pady=3)
+            row_frame.pack_propagate(False)
 
+            icon_col = APPLE_GREEN if is_active else TEXT_MUTED
             ctk.CTkLabel(
-                pill,
-                text="—" if active else "·",
-                font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-                text_color=APPLE_GREEN if active else TEXT_MUTED
-            ).pack(side="left", padx=(12, 8))
+                row_frame,
+                text=icon,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=12),
+                text_color=icon_col
+            ).pack(side="left", padx=(12, 6))
 
-            ctk.CTkLabel(
-                pill,
-                text=title,
-                font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold" if active else "normal"),
-                text_color=TEXT_PRIMARY if active else TEXT_SECONDARY,
-                anchor="w"
-            ).pack(side="left", fill="both", expand=True)
+            btn = ctk.CTkLabel(
+                row_frame,
+                text=text,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold" if is_active else "normal"),
+                text_color=text_col,
+                anchor="w",
+                cursor="hand2"
+            )
+            btn.pack(side="left", fill="both", expand=True)
 
-        # Bottom Shortcut Island
-        btm_card = ctk.CTkFrame(
+            if is_active:
+                ctk.CTkLabel(
+                    row_frame,
+                    text="●",
+                    font=ctk.CTkFont(family=FONT_FAMILY, size=9),
+                    text_color=APPLE_GREEN
+                ).pack(side="right", padx=(0, 12))
+
+        # Bottom Hardware Trigger Card
+        bottom_card = ctk.CTkFrame(
             self.sidebar,
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=16
+            corner_radius=18
         )
-        btm_card.pack(side="bottom", fill="x", padx=14, pady=16)
+        bottom_card.pack(side="bottom", fill="x", padx=14, pady=16)
 
         ctk.CTkLabel(
-            btm_card,
-            text="GLOBAL TRIGGER",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
+            bottom_card,
+            text="HARDWARE HOTKEY",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
             text_color=TEXT_MUTED
-        ).pack(anchor="w", padx=12, pady=(10, 4))
+        ).pack(anchor="w", padx=14, pady=(12, 4))
 
-        ctk.CTkLabel(
-            btm_card,
-            text=f"  {self.current_hotkey_label}  ",
-            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=11, weight="bold"),
+        lbl_hk = ctk.CTkLabel(
+            bottom_card,
+            text=f"[ {self.current_hotkey_label} ]",
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=12, weight="bold"),
             text_color=TEXT_PRIMARY,
             fg_color=GLASS_INSET,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=7,
-            pady=3
-        ).pack(anchor="w", padx=12, pady=(0, 6))
+            corner_radius=10,
+            padx=10,
+            pady=4
+        )
+        lbl_hk.pack(anchor="w", padx=14, pady=(0, 6))
 
         ctk.CTkLabel(
-            btm_card,
-            text="Abort typing anytime with Esc",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9),
-            text_color=TEXT_SECONDARY
-        ).pack(anchor="w", padx=12, pady=(0, 10))
+            bottom_card,
+            text="Emergency Abort: [ Esc ]",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=APPLE_CORAL
+        ).pack(anchor="w", padx=14, pady=(0, 12))
 
         # ------------------------------------------
-        # 2. Glass Canvas Workspace
+        # 2. Fluid Canvas Workspace (Apple Vision Glass Deck)
         # ------------------------------------------
-        self.workspace = ctk.CTkFrame(self.root_container, fg_color=GLASS_BG, corner_radius=0)
+        self.workspace = ctk.CTkFrame(self.root_container, fg_color="transparent", corner_radius=0)
         self.workspace.pack(side="right", fill="both", expand=True)
 
-        # Header Bar
+        # Top Navigation Bar
         self._build_top_bar()
 
-        # Responsive Scrollable Body
+        # Floating Liquid Glass Capsule Bar
+        self._build_floating_capsule_bar()
+
+        # Responsive Scrollable Content Deck
         self.body_scroll = ctk.CTkScrollableFrame(
             self.workspace,
             fg_color="transparent",
             corner_radius=0,
-            scrollbar_button_color="#1F2636",
-            scrollbar_button_hover_color="#2D374D"
+            scrollbar_button_color="#1F2638",
+            scrollbar_button_hover_color="#2D3852"
         )
         self.body_scroll.pack(fill="both", expand=True, padx=22, pady=(0, 16))
 
-        # Glass Modular Slices
+        # Build Studio Glass Cards
         self._build_hero_status_card()
         self._build_precision_sliders_card()
         self._build_clipboard_card()
@@ -424,8 +498,8 @@ class TypoApp(ctk.CTk):
     # Top Application Bar
     # ==========================================
     def _build_top_bar(self):
-        bar = ctk.CTkFrame(self.workspace, fg_color="transparent", height=56)
-        bar.pack(fill="x", padx=22, pady=(14, 6))
+        bar = ctk.CTkFrame(self.workspace, fg_color="transparent", height=58)
+        bar.pack(fill="x", padx=22, pady=(14, 8))
         bar.pack_propagate(False)
 
         left_meta = ctk.CTkFrame(bar, fg_color="transparent")
@@ -433,15 +507,15 @@ class TypoApp(ctk.CTk):
 
         ctk.CTkLabel(
             left_meta,
-            text="SEQUENCER DECK",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
+            text="VISION OS // AUTOMATION STUDIO",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
             text_color=TEXT_MUTED
         ).pack(anchor="w")
 
         self.lbl_view_title = ctk.CTkLabel(
             left_meta,
-            text="Interactive Keystroke Studio",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
+            text="Control Deck · Dynamic Glass Sequencer",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=16, weight="bold"),
             text_color=TEXT_PRIMARY
         )
         self.lbl_view_title.pack(anchor="w")
@@ -449,41 +523,12 @@ class TypoApp(ctk.CTk):
         right_tools = ctk.CTkFrame(bar, fg_color="transparent")
         right_tools.pack(side="right")
 
-        self.lbl_target_window = ctk.CTkLabel(
-            right_tools,
-            text="Target: Standby",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
-            text_color=TEXT_SECONDARY,
-            fg_color=GLASS_CARD,
-            border_color=GLASS_CARD_BORDER,
-            border_width=1,
-            corner_radius=14,
-            padx=12,
-            pady=4
-        )
-        self.lbl_target_window.pack(side="left", padx=(0, 8))
-
-        self.btn_sound = ctk.CTkButton(
-            right_tools,
-            text="Audio On",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-            height=30,
-            corner_radius=15,
-            fg_color=GLASS_CARD,
-            hover_color=GLASS_CARD_HOVER,
-            text_color=TEXT_PRIMARY,
-            border_color=GLASS_CARD_BORDER,
-            border_width=1,
-            command=self._toggle_sound
-        )
-        self.btn_sound.pack(side="left", padx=(0, 8))
-
         self.btn_ghost_hud = ctk.CTkButton(
             right_tools,
-            text="Floating HUD",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-            height=30,
-            corner_radius=15,
+            text="👻 Ghost HUD",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            height=36,
+            corner_radius=18,
             fg_color=GLASS_CARD,
             hover_color=GLASS_CARD_HOVER,
             text_color=TEXT_PRIMARY,
@@ -491,10 +536,124 @@ class TypoApp(ctk.CTk):
             border_width=1,
             command=self._toggle_ghost_hud
         )
-        self.btn_ghost_hud.pack(side="left")
+        self.btn_ghost_hud.pack(side="right", padx=(8, 0))
+
+        self.btn_sound = ctk.CTkButton(
+            right_tools,
+            text="🔊 Audio On",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            height=36,
+            corner_radius=18,
+            fg_color=GLASS_CARD,
+            hover_color=GLASS_CARD_HOVER,
+            text_color=TEXT_PRIMARY,
+            border_color=GLASS_CARD_BORDER,
+            border_width=1,
+            command=self._toggle_sound
+        )
+        self.btn_sound.pack(side="right", padx=(8, 0))
+
+        self.lbl_target_window = ctk.CTkLabel(
+            right_tools,
+            text="Target: Standby",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=TEXT_SECONDARY,
+            fg_color=GLASS_CARD,
+            border_color=GLASS_CARD_BORDER,
+            border_width=1,
+            corner_radius=18,
+            padx=14,
+            pady=6
+        )
+        self.lbl_target_window.pack(side="right")
 
     # ==========================================
-    # 1. Hero Dispatch & Telemetry Deck
+    # Floating Liquid Glass Capsule Bar
+    # ==========================================
+    def _build_floating_capsule_bar(self):
+        capsule_bar = ctk.CTkFrame(
+            self.workspace,
+            height=46,
+            fg_color=GLASS_PILL_BAR,
+            border_color=GLASS_PILL_BAR_BORDER,
+            border_width=1,
+            corner_radius=23
+        )
+        capsule_bar.pack(fill="x", padx=22, pady=(0, 14))
+        capsule_bar.pack_propagate(False)
+
+        caps_inner = ctk.CTkFrame(capsule_bar, fg_color="transparent")
+        caps_inner.pack(fill="both", expand=True, padx=6, pady=4)
+
+        add_pill = ctk.CTkLabel(
+            caps_inner,
+            text="+",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=16, weight="bold"),
+            text_color=TEXT_PRIMARY,
+            fg_color=GLASS_INSET,
+            border_color=GLASS_CARD_BORDER,
+            border_width=1,
+            corner_radius=19,
+            width=38,
+            height=38,
+            cursor="hand2"
+        )
+        add_pill.pack(side="left", padx=(2, 8))
+
+        active_pill = ctk.CTkFrame(
+            caps_inner,
+            fg_color=GLASS_PILL_ACTIVE,
+            border_color=GLASS_PILL_ACTIVE_BORDER,
+            border_width=1,
+            corner_radius=19,
+            height=38
+        )
+        active_pill.pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            active_pill,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10),
+            text_color=APPLE_GREEN
+        ).pack(side="left", padx=(12, 4))
+
+        ctk.CTkLabel(
+            active_pill,
+            text="Primary Studio",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            text_color=TEXT_PRIMARY
+        ).pack(side="left", padx=(0, 14))
+
+        pills = ["Biometrics", "Code Buffer", "Telemetry Log", "Anti-Gaze"]
+        for p in pills:
+            pill_lbl = ctk.CTkLabel(
+                caps_inner,
+                text=p,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=12),
+                text_color=TEXT_SECONDARY,
+                fg_color="transparent",
+                corner_radius=19,
+                padx=12,
+                cursor="hand2"
+            )
+            pill_lbl.pack(side="left", padx=2)
+
+        lens_badge = ctk.CTkLabel(
+            caps_inner,
+            text="💧 Liquid Glass",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=TEXT_PRIMARY,
+            fg_color="#182030",
+            border_color=GLASS_CARD_BORDER_GLOW,
+            border_width=1,
+            corner_radius=15,
+            padx=12,
+            pady=4
+        )
+        lens_badge.pack(side="right", padx=(0, 4))
+
+    # ==========================================
+    # 1. Hero Telemetry & Action Deck Card
     # ==========================================
     def _build_hero_status_card(self):
         card = ctk.CTkFrame(
@@ -502,85 +661,109 @@ class TypoApp(ctk.CTk):
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=20
+            corner_radius=22
         )
-        card.pack(fill="x", pady=(0, 12))
+        card.pack(fill="x", pady=(0, 16))
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="x", padx=20, pady=16)
+        inner.pack(fill="x", padx=22, pady=20)
 
-        # Control Row
+        # Header Row
+        hdr_row = ctk.CTkFrame(inner, fg_color="transparent")
+        hdr_row.pack(fill="x", pady=(0, 12))
+
+        ctk.CTkLabel(
+            hdr_row,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13),
+            text_color=APPLE_GREEN
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            hdr_row,
+            text="Telemetry & Dispatch Engine",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
+            text_color=TEXT_PRIMARY
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            hdr_row,
+            text="visionOS Liquid Glass",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color=TEXT_MUTED
+        ).pack(side="right")
+
+        # Status & Action Buttons Row
         ctrl_row = ctk.CTkFrame(inner, fg_color="transparent")
-        ctrl_row.pack(fill="x", pady=(0, 12))
+        ctrl_row.pack(fill="x", pady=(0, 14))
 
-        pill_left = ctk.CTkFrame(ctrl_row, fg_color="transparent")
-        pill_left.pack(side="left", fill="x", expand=True)
+        pill_frame = ctk.CTkFrame(ctrl_row, fg_color="transparent")
+        pill_frame.pack(side="left")
 
         self.status_pill = ctk.CTkLabel(
-            pill_left,
+            pill_frame,
             text="● Ready",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
             text_color=TEXT_PRIMARY,
-            fg_color=GLASS_INSET,
+            fg_color="#181D2C",
             border_color=GLASS_CARD_BORDER_GLOW,
             border_width=1,
-            corner_radius=13,
-            padx=12,
+            corner_radius=14,
+            padx=14,
             pady=5
         )
         self.status_pill.pack(side="left")
 
         self.status_desc_lbl = ctk.CTkLabel(
-            pill_left,
-            text=f"Switch to target editor and press {self.current_hotkey_label}",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11),
+            pill_frame,
+            text=f"Focus your target editor and press {self.current_hotkey_label}",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12),
             text_color=TEXT_SECONDARY
         )
-        self.status_desc_lbl.pack(side="left", padx=10)
+        self.status_desc_lbl.pack(side="left", padx=12)
 
-        # Action Buttons
-        btn_grp = ctk.CTkFrame(ctrl_row, fg_color="transparent")
-        btn_grp.pack(side="right")
+        btn_frame = ctk.CTkFrame(ctrl_row, fg_color="transparent")
+        btn_frame.pack(side="right")
 
         self.btn_start = ctk.CTkButton(
-            btn_grp,
-            text=f"Execute  [{self.current_hotkey_label}]",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-            height=34,
-            corner_radius=17,
+            btn_frame,
+            text=f"▶ Arm & Execute  [ {self.current_hotkey_label} ]",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            height=38,
+            corner_radius=19,
             fg_color=APPLE_GREEN,
             hover_color=APPLE_GREEN_HOVER,
             text_color="#000000",
             command=self._trigger_start
         )
-        self.btn_start.pack(side="left", padx=(0, 6))
+        self.btn_start.pack(side="left", padx=(0, 8))
 
         self.btn_pause = ctk.CTkButton(
-            btn_grp,
-            text="Pause",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-            height=34,
-            width=70,
-            corner_radius=17,
-            fg_color=GLASS_INSET,
-            hover_color=GLASS_CARD_HOVER,
+            btn_frame,
+            text="⏸ Pause",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            height=38,
+            width=84,
+            corner_radius=19,
+            fg_color="#181D2C",
+            hover_color="#242B40",
             border_color=GLASS_CARD_BORDER,
             border_width=1,
             text_color=TEXT_MUTED,
             state="disabled",
             command=self._trigger_pause_resume
         )
-        self.btn_pause.pack(side="left", padx=(0, 6))
+        self.btn_pause.pack(side="left", padx=(0, 8))
 
         self.btn_stop = ctk.CTkButton(
-            btn_grp,
-            text="Stop [Esc]",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
-            height=34,
-            width=82,
-            corner_radius=17,
-            fg_color=APPLE_CORAL_TINT,
-            hover_color="#3D181A",
+            btn_frame,
+            text="■ Esc / Abort",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            height=38,
+            width=104,
+            corner_radius=19,
+            fg_color=APPLE_CORAL_GLOW,
+            hover_color="#45181C",
             border_color=APPLE_CORAL,
             border_width=1,
             text_color=APPLE_CORAL,
@@ -588,54 +771,48 @@ class TypoApp(ctk.CTk):
         )
         self.btn_stop.pack(side="left")
 
-        # Smooth Progress Bar
+        # 60 FPS Smooth Interpolated Progress Bar
         self.progress_bar = ctk.CTkProgressBar(
             inner,
-            height=5,
+            height=6,
             corner_radius=3,
             fg_color=APPLE_TRACK,
             progress_color=APPLE_GREEN
         )
-        self.progress_bar.pack(fill="x", pady=(2, 14))
+        self.progress_bar.pack(fill="x", pady=(2, 16))
         self.progress_bar.set(0.0)
 
-        # 4 Responsive Metric Pills
-        self.metrics_grid = ctk.CTkFrame(inner, fg_color="transparent")
-        self.metrics_grid.pack(fill="x")
-        self.metrics_grid.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        # 4-Column Metric Grid
+        tele_grid = ctk.CTkFrame(inner, fg_color="transparent")
+        tele_grid.pack(fill="x")
+        tele_grid.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-        def make_metric(col, label, default_val, text_col=TEXT_PRIMARY):
-            card = ctk.CTkFrame(
-                self.metrics_grid,
-                fg_color=GLASS_INSET,
-                corner_radius=12,
-                border_color=GLASS_INSET_BORDER,
-                border_width=1
-            )
-            card.grid(row=0, column=col, sticky="ew", padx=(0 if col == 0 else 3, 0 if col == 3 else 3))
-            ctk.CTkLabel(
-                card,
-                text=label,
-                font=ctk.CTkFont(family=FONT_FAMILY, size=8, weight="bold"),
-                text_color=TEXT_MUTED
-            ).pack(anchor="w", padx=10, pady=(6, 1))
+        c1 = ctk.CTkFrame(tele_grid, fg_color=GLASS_INSET, corner_radius=14, border_color=GLASS_INSET_BORDER, border_width=1)
+        c1.grid(row=0, column=0, sticky="ew", padx=(0, 5), pady=2)
+        ctk.CTkLabel(c1, text="PROGRESS", font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"), text_color=TEXT_MUTED).pack(anchor="w", padx=14, pady=(10, 2))
+        self.lbl_tele_progress = ctk.CTkLabel(c1, text="0 / 0 (0%)", font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"), text_color=TEXT_PRIMARY)
+        self.lbl_tele_progress.pack(anchor="w", padx=14, pady=(0, 10))
 
-            lbl = ctk.CTkLabel(
-                card,
-                text=default_val,
-                font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
-                text_color=text_col
-            )
-            lbl.pack(anchor="w", padx=10, pady=(0, 7))
-            return lbl
+        c2 = ctk.CTkFrame(tele_grid, fg_color=GLASS_INSET, corner_radius=14, border_color=GLASS_INSET_BORDER, border_width=1)
+        c2.grid(row=0, column=1, sticky="ew", padx=3, pady=2)
+        ctk.CTkLabel(c2, text="VELOCITY", font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"), text_color=TEXT_MUTED).pack(anchor="w", padx=14, pady=(10, 2))
+        self.lbl_tele_speed = ctk.CTkLabel(c2, text="80.0 WPM", font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"), text_color=APPLE_GREEN)
+        self.lbl_tele_speed.pack(anchor="w", padx=14, pady=(0, 10))
 
-        self.lbl_tele_progress = make_metric(0, "PROGRESS", "0 / 0 (0%)")
-        self.lbl_tele_speed = make_metric(1, "CADENCE", "80.0 WPM", APPLE_GREEN)
-        self.lbl_tele_time = make_metric(2, "ELAPSED / REMAIN", "00:00 / 00:00")
-        self.lbl_tele_token = make_metric(3, "RECENT TOKEN", "Ready", APPLE_BLUE)
+        c3 = ctk.CTkFrame(tele_grid, fg_color=GLASS_INSET, corner_radius=14, border_color=GLASS_INSET_BORDER, border_width=1)
+        c3.grid(row=0, column=2, sticky="ew", padx=3, pady=2)
+        ctk.CTkLabel(c3, text="ELAPSED / REMAIN", font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"), text_color=TEXT_MUTED).pack(anchor="w", padx=14, pady=(10, 2))
+        self.lbl_tele_time = ctk.CTkLabel(c3, text="00:00 / 00:00", font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"), text_color=TEXT_PRIMARY)
+        self.lbl_tele_time.pack(anchor="w", padx=14, pady=(0, 10))
+
+        c4 = ctk.CTkFrame(tele_grid, fg_color=GLASS_INSET, corner_radius=14, border_color=GLASS_INSET_BORDER, border_width=1)
+        c4.grid(row=0, column=3, sticky="ew", padx=(5, 0), pady=2)
+        ctk.CTkLabel(c4, text="LAST TOKEN // DWELL", font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"), text_color=TEXT_MUTED).pack(anchor="w", padx=14, pady=(10, 2))
+        self.lbl_tele_token = ctk.CTkLabel(c4, text="[ ↵ ] ~55ms", font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=13, weight="bold"), text_color=APPLE_BLUE)
+        self.lbl_tele_token.pack(anchor="w", padx=14, pady=(0, 10))
 
     # ==========================================
-    # 2. Apple Glass Precision Faders
+    # 2. Precision Faders Card
     # ==========================================
     def _build_precision_sliders_card(self):
         card = ctk.CTkFrame(
@@ -643,221 +820,196 @@ class TypoApp(ctk.CTk):
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=20
+            corner_radius=22
         )
-        card.pack(fill="x", pady=(0, 12))
+        card.pack(fill="x", pady=(0, 16))
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="x", padx=20, pady=16)
+        inner.pack(fill="x", padx=22, pady=20)
 
-        hdr = ctk.CTkFrame(inner, fg_color="transparent")
-        hdr.pack(fill="x", pady=(0, 12))
+        hdr_row = ctk.CTkFrame(inner, fg_color="transparent")
+        hdr_row.pack(fill="x", pady=(0, 14))
 
         ctk.CTkLabel(
-            hdr,
-            text="Cadence & Timing Calibration",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
+            hdr_row,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13),
+            text_color=APPLE_BLUE
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            hdr_row,
+            text="Tactile Cadence & Velocity Faders",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
             text_color=TEXT_PRIMARY
         ).pack(side="left")
 
-        ctk.CTkLabel(
-            hdr,
-            text="Natural Gaussian distribution",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10),
-            text_color=TEXT_MUTED
-        ).pack(side="right")
+        faders_grid = ctk.CTkFrame(inner, fg_color="transparent")
+        faders_grid.pack(fill="x")
+        faders_grid.grid_columnconfigure((0, 1), weight=1)
 
-        # Responsive Dual-Column Grid
-        self.faders_grid = ctk.CTkFrame(inner, fg_color="transparent")
-        self.faders_grid.pack(fill="x")
-        self.faders_grid.grid_columnconfigure((0, 1), weight=1)
+        # Fader 1: Velocity WPM
+        f1_card = ctk.CTkFrame(faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=16)
+        f1_card.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=4)
 
-        # --- Fader 1: Typing Speed ---
-        self.f1_card = ctk.CTkFrame(self.faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
-        self.f1_card.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=4)
-
-        f1_h = ctk.CTkFrame(self.f1_card, fg_color="transparent")
-        f1_h.pack(fill="x", padx=12, pady=(8, 2))
-        ctk.CTkLabel(f1_h, text="Typing Speed", font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
-
-        self.lbl_wpm_val_pill = ctk.CTkLabel(
+        f1_h = ctk.CTkFrame(f1_card, fg_color="transparent")
+        f1_h.pack(fill="x", padx=16, pady=(14, 4))
+        ctk.CTkLabel(f1_h, text="Typing Velocity", font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
+        self.lbl_wpm_val = ctk.CTkLabel(
             f1_h,
-            text="80.0 WPM",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text="80 WPM",
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=12, weight="bold"),
             text_color=APPLE_GREEN,
-            fg_color=APPLE_GREEN_TINT,
+            fg_color=APPLE_GREEN_GLOW,
             border_color=GLASS_PILL_ACTIVE_BORDER,
             border_width=1,
-            corner_radius=7,
-            padx=7,
-            pady=1
+            corner_radius=8,
+            padx=8,
+            pady=2
         )
-        self.lbl_wpm_val_pill.pack(side="right")
-        self.lbl_wpm = self.lbl_wpm_val_pill
+        self.lbl_wpm_val.pack(side="right")
 
         self.slider_wpm = ctk.CTkSlider(
-            self.f1_card,
+            f1_card,
             from_=30,
             to=180,
             number_of_steps=150,
-            height=13,
-            corner_radius=6,
             fg_color=APPLE_TRACK,
             progress_color=APPLE_GREEN,
-            button_color=TEXT_PRIMARY,
-            button_hover_color=TEXT_PRIMARY,
-            button_corner_radius=6,
-            button_length=13,
+            button_color=APPLE_GREEN,
+            button_hover_color=APPLE_GREEN_HOVER,
             command=self._on_wpm_change
         )
         self.slider_wpm.set(80)
-        self.slider_wpm.pack(fill="x", padx=12, pady=(4, 3))
+        self.slider_wpm.pack(fill="x", padx=16, pady=(4, 6))
 
-        f1_sub = ctk.CTkFrame(self.f1_card, fg_color="transparent")
-        f1_sub.pack(fill="x", padx=12, pady=(0, 8))
-        ctk.CTkLabel(f1_sub, text="30 WPM (Relaxed)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="left")
-        ctk.CTkLabel(f1_sub, text="180 WPM (Extreme)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="right")
+        f1_sub = ctk.CTkFrame(f1_card, fg_color="transparent")
+        f1_sub.pack(fill="x", padx=16, pady=(0, 12))
+        ctk.CTkLabel(f1_sub, text="30 WPM (Relaxed)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(f1_sub, text="180 WPM (Extreme)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="right")
 
-        # --- Fader 2: Jitter Variance ---
-        self.f2_card = ctk.CTkFrame(self.faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
-        self.f2_card.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=4)
+        # Fader 2: Jitter Variance
+        f2_card = ctk.CTkFrame(faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=16)
+        f2_card.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=4)
 
-        f2_h = ctk.CTkFrame(self.f2_card, fg_color="transparent")
-        f2_h.pack(fill="x", padx=12, pady=(8, 2))
-        ctk.CTkLabel(f2_h, text="Human Cadence Jitter", font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
-
-        self.lbl_jitter_val_pill = ctk.CTkLabel(
+        f2_h = ctk.CTkFrame(f2_card, fg_color="transparent")
+        f2_h.pack(fill="x", padx=16, pady=(14, 4))
+        ctk.CTkLabel(f2_h, text="Human Cadence Jitter", font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
+        self.lbl_jitter_val = ctk.CTkLabel(
             f2_h,
-            text="±25 %",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text="25%",
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=12, weight="bold"),
             text_color=APPLE_BLUE,
-            fg_color=APPLE_BLUE_TINT,
-            border_color="#183B6B",
+            fg_color=APPLE_BLUE_GLOW,
+            border_color="#1E3C66",
             border_width=1,
-            corner_radius=7,
-            padx=7,
-            pady=1
+            corner_radius=8,
+            padx=8,
+            pady=2
         )
-        self.lbl_jitter_val_pill.pack(side="right")
-        self.lbl_jitter = self.lbl_jitter_val_pill
+        self.lbl_jitter_val.pack(side="right")
 
         self.slider_jitter = ctk.CTkSlider(
-            self.f2_card,
-            from_=0,
-            to=60,
+            f2_card,
+            from_=0.0,
+            to=0.60,
             number_of_steps=60,
-            height=13,
-            corner_radius=6,
             fg_color=APPLE_TRACK,
             progress_color=APPLE_BLUE,
-            button_color=TEXT_PRIMARY,
-            button_hover_color=TEXT_PRIMARY,
-            button_corner_radius=6,
-            button_length=13,
+            button_color=APPLE_BLUE,
+            button_hover_color="#3399FF",
             command=self._on_jitter_change
         )
-        self.slider_jitter.set(25)
-        self.slider_jitter.pack(fill="x", padx=12, pady=(4, 3))
+        self.slider_jitter.set(0.25)
+        self.slider_jitter.pack(fill="x", padx=16, pady=(4, 6))
 
-        f2_sub = ctk.CTkFrame(self.f2_card, fg_color="transparent")
-        f2_sub.pack(fill="x", padx=12, pady=(0, 8))
-        ctk.CTkLabel(f2_sub, text="0% (Strict)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="left")
-        ctk.CTkLabel(f2_sub, text="60% (Organic)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="right")
+        f2_sub = ctk.CTkFrame(f2_card, fg_color="transparent")
+        f2_sub.pack(fill="x", padx=16, pady=(0, 12))
+        ctk.CTkLabel(f2_sub, text="0% (Strict)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(f2_sub, text="60% (Organic)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="right")
 
-        # --- Fader 3: Typo Rate ---
-        self.f3_card = ctk.CTkFrame(self.faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
-        self.f3_card.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=4)
+        # Fader 3: Typo & Mistake Injection
+        f3_card = ctk.CTkFrame(faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=16)
+        f3_card.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=4)
 
-        f3_h = ctk.CTkFrame(self.f3_card, fg_color="transparent")
-        f3_h.pack(fill="x", padx=12, pady=(8, 2))
-        ctk.CTkLabel(f3_h, text="Typo & Correction Rate", font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
-
-        self.lbl_mistake_val_pill = ctk.CTkLabel(
+        f3_h = ctk.CTkFrame(f3_card, fg_color="transparent")
+        f3_h.pack(fill="x", padx=16, pady=(14, 4))
+        ctk.CTkLabel(f3_h, text="Typo & Mistake Rate", font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
+        self.lbl_mistake_val = ctk.CTkLabel(
             f3_h,
-            text="1.5 %",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text="1.5%",
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=12, weight="bold"),
             text_color=APPLE_AMBER,
-            fg_color=APPLE_AMBER_TINT,
-            border_color="#4F330D",
+            fg_color=APPLE_AMBER_GLOW,
+            border_color="#593A14",
             border_width=1,
-            corner_radius=7,
-            padx=7,
-            pady=1
+            corner_radius=8,
+            padx=8,
+            pady=2
         )
-        self.lbl_mistake_val_pill.pack(side="right")
-        self.lbl_mistake = self.lbl_mistake_val_pill
+        self.lbl_mistake_val.pack(side="right")
 
         self.slider_mistake = ctk.CTkSlider(
-            self.f3_card,
+            f3_card,
             from_=0.0,
-            to=5.0,
+            to=0.05,
             number_of_steps=50,
-            height=13,
-            corner_radius=6,
             fg_color=APPLE_TRACK,
             progress_color=APPLE_AMBER,
-            button_color=TEXT_PRIMARY,
-            button_hover_color=TEXT_PRIMARY,
-            button_corner_radius=6,
-            button_length=13,
+            button_color=APPLE_AMBER,
+            button_hover_color="#FFB338",
             command=self._on_mistake_rate_change
         )
-        self.slider_mistake.set(1.5)
-        self.slider_mistake.pack(fill="x", padx=12, pady=(4, 3))
+        self.slider_mistake.set(0.015)
+        self.slider_mistake.pack(fill="x", padx=16, pady=(4, 6))
 
-        f3_sub = ctk.CTkFrame(self.f3_card, fg_color="transparent")
-        f3_sub.pack(fill="x", padx=12, pady=(0, 8))
-        ctk.CTkLabel(f3_sub, text="0.0% (Flawless)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="left")
-        ctk.CTkLabel(f3_sub, text="5.0% (Natural Typos)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="right")
+        f3_sub = ctk.CTkFrame(f3_card, fg_color="transparent")
+        f3_sub.pack(fill="x", padx=16, pady=(0, 12))
+        ctk.CTkLabel(f3_sub, text="0.0% (Flawless)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(f3_sub, text="5.0% (Natural Typos)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="right")
 
-        # --- Fader 4: Safety Countdown Delay ---
-        self.f4_card = ctk.CTkFrame(self.faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
-        self.f4_card.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=4)
+        # Fader 4: Safety Focus Countdown
+        f4_card = ctk.CTkFrame(faders_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=16)
+        f4_card.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=4)
 
-        f4_h = ctk.CTkFrame(self.f4_card, fg_color="transparent")
-        f4_h.pack(fill="x", padx=12, pady=(8, 2))
-        ctk.CTkLabel(f4_h, text="Safety Focus Countdown", font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
-
-        self.lbl_delay_val_pill = ctk.CTkLabel(
+        f4_h = ctk.CTkFrame(f4_card, fg_color="transparent")
+        f4_h.pack(fill="x", padx=16, pady=(14, 4))
+        ctk.CTkLabel(f4_h, text="Safety Focus Countdown", font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
+        self.lbl_delay_val = ctk.CTkLabel(
             f4_h,
-            text="3.0 s",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text="3.0s",
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=12, weight="bold"),
             text_color=APPLE_PURPLE,
-            fg_color=APPLE_PURPLE_TINT,
-            border_color="#4F266E",
+            fg_color=APPLE_PURPLE_GLOW,
+            border_color="#4F2668",
             border_width=1,
-            corner_radius=7,
-            padx=7,
-            pady=1
+            corner_radius=8,
+            padx=8,
+            pady=2
         )
-        self.lbl_delay_val_pill.pack(side="right")
-        self.lbl_delay = self.lbl_delay_val_pill
+        self.lbl_delay_val.pack(side="right")
 
         self.slider_delay = ctk.CTkSlider(
-            self.f4_card,
+            f4_card,
             from_=1.0,
             to=8.0,
             number_of_steps=70,
-            height=13,
-            corner_radius=6,
             fg_color=APPLE_TRACK,
             progress_color=APPLE_PURPLE,
-            button_color=TEXT_PRIMARY,
-            button_hover_color=TEXT_PRIMARY,
-            button_corner_radius=6,
-            button_length=13,
+            button_color=APPLE_PURPLE,
+            button_hover_color="#CC70FF",
             command=self._on_delay_change
         )
         self.slider_delay.set(3.0)
-        self.slider_delay.pack(fill="x", padx=12, pady=(4, 3))
+        self.slider_delay.pack(fill="x", padx=16, pady=(4, 6))
 
-        f4_sub = ctk.CTkFrame(self.f4_card, fg_color="transparent")
-        f4_sub.pack(fill="x", padx=12, pady=(0, 8))
-        ctk.CTkLabel(f4_sub, text="1.0s (Fast Switch)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="left")
-        ctk.CTkLabel(f4_sub, text="8.0s (Relaxed)", font=ctk.CTkFont(family=FONT_FAMILY, size=8), text_color=TEXT_MUTED).pack(side="right")
+        f4_sub = ctk.CTkFrame(f4_card, fg_color="transparent")
+        f4_sub.pack(fill="x", padx=16, pady=(0, 12))
+        ctk.CTkLabel(f4_sub, text="1.0s (Fast Switch)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(f4_sub, text="8.0s (Relaxed)", font=ctk.CTkFont(family=FONT_FAMILY, size=11), text_color=TEXT_MUTED).pack(side="right")
 
     # ==========================================
-    # 3. Clean Inset Code Buffer
+    # 3. Live Code Buffer & Telemetry
     # ==========================================
     def _build_clipboard_card(self):
         card = ctk.CTkFrame(
@@ -865,43 +1017,39 @@ class TypoApp(ctk.CTk):
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=20
+            corner_radius=22
         )
-        card.pack(fill="x", pady=(0, 12))
+        card.pack(fill="x", pady=(0, 16))
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="x", padx=20, pady=16)
+        inner.pack(fill="x", padx=22, pady=20)
 
-        header = ctk.CTkFrame(inner, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 10))
-
-        left_hdr = ctk.CTkFrame(header, fg_color="transparent")
-        left_hdr.pack(side="left")
+        hdr_row = ctk.CTkFrame(inner, fg_color="transparent")
+        hdr_row.pack(fill="x", pady=(0, 12))
 
         ctk.CTkLabel(
-            left_hdr,
-            text="Clipboard Code Memory",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
+            hdr_row,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13),
+            text_color=APPLE_GREEN
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            hdr_row,
+            text="Live Code Buffer & Non-Destructive Inspection",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
             text_color=TEXT_PRIMARY
-        ).pack(anchor="w")
+        ).pack(side="left")
 
-        self.lbl_clip_meta = ctk.CTkLabel(
-            left_hdr,
-            text="Standby — No content loaded",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10),
-            text_color=TEXT_MUTED
-        )
-        self.lbl_clip_meta.pack(anchor="w", pady=(1, 0))
-
-        btn_grp = ctk.CTkFrame(header, fg_color="transparent")
-        btn_grp.pack(side="right")
+        btn_box = ctk.CTkFrame(hdr_row, fg_color="transparent")
+        btn_box.pack(side="right")
 
         btn_sample = ctk.CTkButton(
-            btn_grp,
-            text="Load Sample",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
-            height=28,
-            corner_radius=14,
+            btn_box,
+            text="Load Sample Code",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            height=30,
+            corner_radius=15,
             fg_color=GLASS_INSET,
             hover_color=GLASS_CARD_HOVER,
             text_color=TEXT_PRIMARY,
@@ -909,14 +1057,15 @@ class TypoApp(ctk.CTk):
             border_width=1,
             command=self._load_sample_code
         )
-        btn_sample.pack(side="left", padx=(0, 6))
+        btn_sample.pack(side="right", padx=(6, 0))
 
         btn_refresh = ctk.CTkButton(
-            btn_grp,
-            text="Sync Clipboard",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
-            height=28,
-            corner_radius=14,
+            btn_box,
+            text="⟳ Refresh",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            height=30,
+            width=70,
+            corner_radius=15,
             fg_color=GLASS_INSET,
             hover_color=GLASS_CARD_HOVER,
             text_color=TEXT_PRIMARY,
@@ -924,23 +1073,32 @@ class TypoApp(ctk.CTk):
             border_width=1,
             command=self._refresh_clipboard_view
         )
-        btn_refresh.pack(side="left")
+        btn_refresh.pack(side="right")
 
+        # Monospace Inset Code Box
         self.clip_textbox = ctk.CTkTextbox(
             inner,
-            height=110,
-            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=11),
+            height=140,
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=12),
             fg_color=GLASS_INSET,
             text_color=TEXT_PRIMARY,
             border_color=GLASS_INSET_BORDER,
             border_width=1,
-            corner_radius=12,
+            corner_radius=14,
             wrap="none"
         )
-        self.clip_textbox.pack(fill="x")
+        self.clip_textbox.pack(fill="x", pady=(2, 10))
+
+        self.lbl_clip_meta = ctk.CTkLabel(
+            inner,
+            text="0 characters · 0 lines · 0 tokens",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12),
+            text_color=TEXT_SECONDARY
+        )
+        self.lbl_clip_meta.pack(anchor="w")
 
     # ==========================================
-    # 4. Apple Glass Capabilities & Responsive Toggles
+    # 4. Anti-Detection Stealth Feature Matrix
     # ==========================================
     def _build_feature_matrix_card(self):
         card = ctk.CTkFrame(
@@ -948,180 +1106,177 @@ class TypoApp(ctk.CTk):
             fg_color=GLASS_CARD,
             border_color=GLASS_CARD_BORDER,
             border_width=1,
-            corner_radius=20
+            corner_radius=22
         )
-        card.pack(fill="x", pady=(0, 12))
+        card.pack(fill="x", pady=(0, 20))
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="x", padx=20, pady=16)
+        inner.pack(fill="x", padx=22, pady=20)
 
-        hdr = ctk.CTkFrame(inner, fg_color="transparent")
-        hdr.pack(fill="x", pady=(0, 10))
+        hdr_row = ctk.CTkFrame(inner, fg_color="transparent")
+        hdr_row.pack(fill="x", pady=(0, 14))
 
         ctk.CTkLabel(
-            hdr,
-            text="Stealth & Anti-Detection Capabilities",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
+            hdr_row,
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13),
+            text_color=APPLE_GREEN
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            hdr_row,
+            text="Anti-Detection & Algorithmic Stealth Matrix",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=15, weight="bold"),
             text_color=TEXT_PRIMARY
         ).pack(side="left")
 
-        ctk.CTkLabel(
-            hdr,
-            text="8 Active Modules",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"),
-            text_color=APPLE_GREEN,
-            fg_color=APPLE_GREEN_TINT,
-            corner_radius=6,
-            padx=8,
-            pady=2
-        ).pack(side="right")
+        features_grid = ctk.CTkFrame(inner, fg_color="transparent")
+        features_grid.pack(fill="x")
+        features_grid.grid_columnconfigure((0, 1), weight=1)
 
-        self.sw_grid = ctk.CTkFrame(inner, fg_color="transparent")
-        self.sw_grid.pack(fill="x")
-        self.sw_grid.grid_columnconfigure((0, 1), weight=1)
+        matrix = [
+            ("Simulated Cursor Wandering", "Subtle mouse drift with cubic easing defeats webcam gaze & mouse anomaly sensors", self._on_toggle_cursor_wandering, True, 0, 0),
+            ("Complexity Cadence Throttler", "Throttles to 35-50 WPM on nested DP & bitwise logic; fast on boilerplate", self._on_toggle_complexity_throttler, True, 0, 1),
+            ("Incremental Code Construction", "Outlines signature stub first, then navigates back inside function body", self._on_toggle_incremental, False, 1, 0),
+            ("Selection & Refactoring Simulation", "Simulates Shift+Left selection & backspace replacement of variable tokens", self._on_toggle_refactoring, True, 1, 1),
+            ("Target Focus Guard", "Auto-pauses typing if target window loses focus (prevents cross-window leaks)", self._on_toggle_focus, True, 2, 0),
+            ("Smart Auto-Indent & Dedent Sync", "Zero spacebars for code indent; syncs with editor auto-indentation", self._on_toggle_bracket_neutralizer, True, 2, 1),
+            ("Biometric Keystroke Dynamics", "Non-uniform Gaussian dwell times (~55ms) bypass 0ms virtual key hold detection", self._on_toggle_biometrics, True, 3, 0),
+            ("Autonomous Mistake Injection", "Types adjacent QWERTY keys with human visual hesitation & backspace recovery", self._on_toggle_mistakes, True, 3, 1),
+        ]
 
-        self.toggle_frames = []
+        self.switches = {}
+        for title, desc, callback, default_val, row, col in matrix:
+            pad_x = (0, 6) if col == 0 else (6, 0)
+            cell = ctk.CTkFrame(features_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
+            cell.grid(row=row, column=col, sticky="ew", padx=pad_x, pady=4)
 
-        def make_toggle(row, col, title, desc, default_on, callback):
-            frame = ctk.CTkFrame(
-                self.sw_grid,
-                fg_color=GLASS_INSET,
-                border_color=GLASS_INSET_BORDER,
-                border_width=1,
-                corner_radius=12
-            )
-            frame.grid(row=row, column=col, sticky="ew", padx=(0 if col == 0 else 6, 6 if col == 0 else 0), pady=3)
-            self.toggle_frames.append(frame)
-
-            t_box = ctk.CTkFrame(frame, fg_color="transparent")
-            t_box.pack(side="left", fill="both", expand=True, padx=12, pady=7)
+            top_line = ctk.CTkFrame(cell, fg_color="transparent")
+            top_line.pack(fill="x", padx=14, pady=(12, 2))
 
             ctk.CTkLabel(
-                t_box,
+                top_line,
                 text=title,
-                font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+                font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
                 text_color=TEXT_PRIMARY
-            ).pack(anchor="w")
-
-            ctk.CTkLabel(
-                t_box,
-                text=desc,
-                font=ctk.CTkFont(family=FONT_FAMILY, size=9),
-                text_color=TEXT_MUTED
-            ).pack(anchor="w")
+            ).pack(side="left")
 
             sw = ctk.CTkSwitch(
-                frame,
+                top_line,
                 text="",
-                width=40,
-                switch_width=34,
-                switch_height=18,
+                width=42,
+                height=22,
+                switch_width=38,
+                switch_height=20,
                 progress_color=APPLE_GREEN,
                 button_color=TEXT_PRIMARY,
-                button_hover_color=TEXT_PRIMARY,
-                fg_color=APPLE_TRACK,
                 command=callback
             )
-            sw.pack(side="right", padx=(0, 12))
-            if default_on:
+            sw.pack(side="right")
+            if default_val:
                 sw.select()
             else:
                 sw.deselect()
-            return sw
+            self.switches[title] = sw
 
-        # Toggles registered for auto-reflow
-        self.chk_cursor_wandering = make_toggle(0, 0, "Simulated Cursor Wandering", "Random micro-mouse drifting to defeat eye/gaze tracking", True, self._on_toggle_cursor_wandering)
-        self.chk_complexity_throttler = make_toggle(0, 1, "Complexity Cadence Throttler", "Speed through boilerplate, slow down through dense logic", True, self._on_toggle_complexity_throttler)
-        self.chk_incremental = make_toggle(1, 0, "Incremental Code Construction", "Types function signatures first, then iteratively fills bodies", self.engine.incremental_construction_mode, self._on_toggle_incremental)
-        self.chk_refactoring = make_toggle(1, 1, "Refactoring & Selection Drift", "Simulates cursor navigation, highlighting, and variable renaming", True, self._on_toggle_refactoring)
-        self.chk_biometrics = make_toggle(2, 0, "Biometric Gaussian Dynamics", "Variable key dwell & inter-keystroke intervals", True, self._on_toggle_biometrics)
-        self.chk_mistakes = make_toggle(2, 1, "Organic Typos & Backspace", "QWERTY neighbor substitutions with natural backspace recovery", True, self._on_toggle_mistakes)
-        self.chk_brackets = make_toggle(3, 0, "Bracket & Indent Neutralizer", "Neutralizes Monaco / VS Code auto-closing pairs & duplicate tabs", True, self._on_toggle_bracket_neutralizer)
-        self.chk_focus = make_toggle(3, 1, "Focus Loss Auto-Pause", "Immediately suspends keystrokes if the target window blurs", True, self._on_toggle_focus)
+            ctk.CTkLabel(
+                cell,
+                text=desc,
+                font=ctk.CTkFont(family=FONT_FAMILY, size=11),
+                text_color=TEXT_SECONDARY,
+                wraplength=340,
+                justify="left"
+            ).pack(anchor="w", padx=14, pady=(0, 12))
 
     # ==========================================
-    # Global Hotkey Manager & Callback Bindings
+    # Hotkey & Event Handlers
     # ==========================================
     def _init_hotkeys(self):
-        def hotkey_callback():
-            self._ui_queue.put(("hotkey_pressed", {}))
+        try:
+            self.hotkey_mgr = GlobalHotKeyManager(callback=self._on_hotkey_triggered)
+            self.hotkey_mgr.start()
+        except Exception as e:
+            print(f"[TYPO Hotkey] Global Hotkey Manager init warning: {e}")
 
-        self.hotkey_mgr = GlobalHotKeyManager(callback=hotkey_callback)
-        registered = self.hotkey_mgr.start()
-        if not registered:
-            self._queue_error(self.hotkey_mgr.last_error or f"{PRIMARY_HOTKEY_LABEL} could not be registered.")
+    def _on_hotkey_triggered(self):
+        self._ui_queue.put(("hotkey_pressed", {}))
 
     def _on_wpm_change(self, val):
-        wpm = round(val)
-        self.lbl_wpm_val_pill.configure(text=f"{wpm:.1f} WPM")
-        self.lbl_tele_speed.configure(text=f"{wpm:.1f} WPM")
-        self.lbl_sidebar_wpm.configure(text=f"{wpm} WPM")
+        wpm = round(float(val))
         self.engine.wpm = float(wpm)
+        self.lbl_wpm_val.configure(text=f"{wpm} WPM")
+        self.lbl_sidebar_wpm.configure(text=f"{wpm} WPM")
+        self.lbl_tele_speed.configure(text=f"{wpm:.1f} WPM")
 
     def _on_jitter_change(self, val):
-        jitter = round(val)
-        self.lbl_jitter_val_pill.configure(text=f"±{jitter} %")
-        self.engine.variance = float(jitter) / 100.0
+        jitter = float(val)
+        self.engine.variance = jitter
+        self.lbl_jitter_val.configure(text=f"{int(jitter * 100)}%")
 
     def _on_mistake_rate_change(self, val):
-        rate_pct = round(val, 1)
-        self.lbl_mistake_val_pill.configure(text=f"{rate_pct:.1f} %")
-        self.engine.mistake_rate = float(rate_pct) / 100.0
+        rate = float(val)
+        self.engine.mistake_rate = rate
+        self.lbl_mistake_val.configure(text=f"{rate * 100:.1f}%")
 
     def _on_delay_change(self, val):
-        delay = round(val, 1)
-        self.lbl_delay_val_pill.configure(text=f"{delay:.1f} s")
-        self.engine.safety_delay = float(delay)
+        delay = float(val)
+        self.engine.safety_delay = delay
+        self.lbl_delay_val.configure(text=f"{delay:.1f}s")
 
-    # Feature Toggles
     def _on_toggle_cursor_wandering(self):
-        self.engine.cursor_wandering_enabled = bool(self.chk_cursor_wandering.get())
+        self.engine.cursor_wandering_enabled = bool(self.switches["Simulated Cursor Wandering"].get())
 
     def _on_toggle_complexity_throttler(self):
-        self.engine.complexity_throttler_enabled = bool(self.chk_complexity_throttler.get())
+        self.engine.complexity_throttler_enabled = bool(self.switches["Complexity Cadence Throttler"].get())
 
     def _on_toggle_incremental(self):
-        self.engine.incremental_construction_mode = bool(self.chk_incremental.get())
+        self.engine.incremental_construction_mode = bool(self.switches["Incremental Code Construction"].get())
 
     def _on_toggle_refactoring(self):
-        self.engine.refactoring_simulation_enabled = bool(self.chk_refactoring.get())
+        self.engine.refactoring_simulation_enabled = bool(self.switches["Selection & Refactoring Simulation"].get())
 
     def _on_toggle_focus(self):
-        self.engine.auto_pause_on_focus_loss = bool(self.chk_focus.get())
+        self.engine.auto_pause_on_focus_loss = bool(self.switches["Target Focus Guard"].get())
 
     def _on_toggle_bracket_neutralizer(self):
-        self.engine.neutralize_auto_closing_brackets = bool(self.chk_brackets.get())
+        enabled = bool(self.switches["Smart Auto-Indent & Dedent Sync"].get())
+        self.engine.smart_auto_indent = enabled
+        self.engine.neutralize_auto_closing_brackets = enabled
 
     def _on_toggle_biometrics(self):
-        self.engine.biometric_dynamics_enabled = bool(self.chk_biometrics.get())
+        self.engine.biometric_dynamics_enabled = bool(self.switches["Biometric Keystroke Dynamics"].get())
 
     def _on_toggle_mistakes(self):
-        self.engine.mistake_injection_enabled = bool(self.chk_mistakes.get())
+        self.engine.mistake_injection_enabled = bool(self.switches["Autonomous Mistake Injection"].get())
 
     def _toggle_sound(self):
         self.sound_enabled = not self.sound_enabled
-        self.btn_sound.configure(
-            text="Audio On" if self.sound_enabled else "Audio Off",
-            text_color=TEXT_PRIMARY if self.sound_enabled else TEXT_MUTED
-        )
+        if self.sound_enabled:
+            self.btn_sound.configure(text="🔊 Audio On", text_color=TEXT_PRIMARY)
+            try:
+                winsound.MessageBeep(winsound.MB_OK)
+            except Exception:
+                pass
+        else:
+            self.btn_sound.configure(text="🔇 Audio Off", text_color=TEXT_MUTED)
 
     def _toggle_ghost_hud(self):
-        if not getattr(self, "ghost_hud", None) or not self.ghost_hud.winfo_exists():
-            from typo.ghost_hud import GhostHUD
+        from typo.ghost_hud import GhostHUD
+        if self.ghost_hud is None or not self.ghost_hud.winfo_exists():
             self.ghost_hud = GhostHUD(self, on_close_callback=self._on_ghost_hud_closed)
-            self.btn_ghost_hud.configure(text="HUD Active", fg_color=APPLE_GREEN_TINT, text_color=APPLE_GREEN)
-            self.ghost_hud.update_state(self.engine.state, {"delay": self.engine.safety_delay, "target": self.engine.target_window})
+            self.ghost_hud.show_hud()
+            self.btn_ghost_hud.configure(text="👻 Hide HUD", fg_color=GLASS_PILL_ACTIVE, border_color=GLASS_PILL_ACTIVE_BORDER)
         else:
             if self.ghost_hud.winfo_viewable():
                 self.ghost_hud.hide_hud()
-                self.btn_ghost_hud.configure(text="Floating HUD", fg_color=GLASS_CARD, text_color=TEXT_PRIMARY)
+                self.btn_ghost_hud.configure(text="👻 Ghost HUD", fg_color=GLASS_CARD, border_color=GLASS_CARD_BORDER)
             else:
                 self.ghost_hud.show_hud()
-                self.btn_ghost_hud.configure(text="HUD Active", fg_color=APPLE_GREEN_TINT, text_color=APPLE_GREEN)
+                self.btn_ghost_hud.configure(text="👻 Hide HUD", fg_color=GLASS_PILL_ACTIVE, border_color=GLASS_PILL_ACTIVE_BORDER)
 
     def _on_ghost_hud_closed(self):
-        if hasattr(self, "btn_ghost_hud"):
-            self.btn_ghost_hud.configure(text="Floating HUD", fg_color=GLASS_CARD, text_color=TEXT_PRIMARY)
+        if hasattr(self, "btn_ghost_hud") and self.btn_ghost_hud.winfo_exists():
+            self.btn_ghost_hud.configure(text="👻 Ghost HUD", fg_color=GLASS_CARD, border_color=GLASS_CARD_BORDER)
 
     def _trigger_start(self):
         self.engine.trigger_from_clipboard()
@@ -1162,7 +1317,6 @@ class TypoApp(ctk.CTk):
             return
         if self.engine.state == EngineState.IDLE:
             text, is_empty, err_msg = get_current_clipboard()
-            # Calculate lightweight O(1) fingerprint instead of caching massive text buffers
             fp = (len(text), hash(text[:1024]), hash(text[-1024:]) if len(text) > 1024 else 0)
             if fp != self._last_clipboard_fingerprint:
                 self._last_clipboard_fingerprint = fp
@@ -1186,7 +1340,7 @@ class TypoApp(ctk.CTk):
         self.clip_textbox.delete("1.0", "end")
 
         if is_empty:
-            self.clip_textbox.insert("1.0", "Windows clipboard buffer is empty.\n\nCopy source code from your IDE, or click 'Load Sample' above.")
+            self.clip_textbox.insert("1.0", "Windows clipboard buffer is empty.\n\nCopy source code from your IDE, or click 'Load Sample Code' above.")
             self.lbl_clip_meta.configure(text="Clipboard empty", text_color=APPLE_AMBER)
         else:
             self.clip_textbox.insert("1.0", stats["preview"])
@@ -1194,7 +1348,7 @@ class TypoApp(ctk.CTk):
             lines = stats.get("line_count", stats.get("lines", 0))
             words = stats.get("word_count", stats.get("words", 0))
             self.lbl_clip_meta.configure(
-                text=f"{stats.get('char_count', 0)} chars • {lines} lines • {words} tokens{code_tag}",
+                text=f"{stats.get('char_count', 0)} characters • {lines} lines • {words} tokens{code_tag}",
                 text_color=APPLE_BLUE
             )
 
@@ -1246,55 +1400,56 @@ class TypoApp(ctk.CTk):
 
     def _handle_state_change(self, state: str, details: dict):
         if state == EngineState.IDLE:
-            self.status_pill.configure(text="● Ready", fg_color=GLASS_INSET, text_color=TEXT_PRIMARY)
-            self.status_desc_lbl.configure(text=f"Switch to target editor and press {self.current_hotkey_label}", text_color=TEXT_SECONDARY)
-            self.btn_start.configure(state="normal", text=f"Execute  [{self.current_hotkey_label}]", fg_color=APPLE_GREEN)
-            self.btn_pause.configure(state="disabled", text="Pause", fg_color=GLASS_INSET, text_color=TEXT_MUTED)
+            self._target_progress = 0.0
+            self.status_pill.configure(text="● Ready", fg_color="#181D2C", text_color=TEXT_PRIMARY)
+            self.status_desc_lbl.configure(text=f"Focus your target editor and press {self.current_hotkey_label}", text_color=TEXT_SECONDARY)
+            self.btn_start.configure(state="normal", text=f"▶ Arm & Execute  [ {self.current_hotkey_label} ]", fg_color=APPLE_GREEN)
+            self.btn_pause.configure(state="disabled", text="⏸ Pause", fg_color="#181D2C", text_color=TEXT_MUTED)
             self.progress_bar.configure(progress_color=APPLE_GREEN)
             self.lbl_target_window.configure(text="Target: Standby")
 
         elif state == EngineState.COUNTDOWN:
             delay = details.get("delay", self.engine.safety_delay)
-            self.status_pill.configure(text=f"⏳ {delay:.1f}s", fg_color=APPLE_AMBER_TINT, text_color=APPLE_AMBER)
+            self.status_pill.configure(text=f"⏳ {delay:.1f}s", fg_color=APPLE_AMBER_GLOW, text_color=APPLE_AMBER)
             self.status_desc_lbl.configure(text=f"Armed — Switch to target editor! Starting in {delay:.1f}s...", text_color=APPLE_AMBER)
-            self.btn_start.configure(state="disabled", text="Counting down...", fg_color="#7A4A0B")
+            self.btn_start.configure(state="disabled", text="Counting Down...", fg_color="#7A4A0B")
             self.btn_pause.configure(state="disabled")
-            self.progress_bar.set(0.0)
+            self._target_progress = 0.0
             self.progress_bar.configure(progress_color=APPLE_AMBER)
 
         elif state == EngineState.TYPING:
             target = details.get("target", {})
             title = target.get("title", "Active Editor")[:22]
             proc = target.get("process_name", "App")
-            self.status_pill.configure(text="⚡ Typing", fg_color=APPLE_GREEN_TINT, text_color=APPLE_GREEN)
-            self.status_desc_lbl.configure(text=f"Active in {title} ({proc})", text_color=APPLE_GREEN)
+            self.status_pill.configure(text="⚡ Typing", fg_color=APPLE_GREEN_GLOW, text_color=APPLE_GREEN)
+            self.status_desc_lbl.configure(text=f"Typing into: {title} ({proc})", text_color=APPLE_GREEN)
             self.lbl_target_window.configure(text=f"Target: {proc.upper()}")
-            self.btn_start.configure(state="disabled", text="Typing Active", fg_color="#17502B")
-            self.btn_pause.configure(state="normal", text="Pause", fg_color=GLASS_INSET, text_color=TEXT_PRIMARY)
+            self.btn_start.configure(state="disabled", text="⚡ Typing Active", fg_color="#17502B")
+            self.btn_pause.configure(state="normal", text="⏸ Pause", fg_color="#181D2C", text_color=TEXT_PRIMARY)
             self.progress_bar.configure(progress_color=APPLE_GREEN)
 
         elif state == EngineState.PAUSED:
             reason = details.get("reason", "Paused")[:30]
-            self.status_pill.configure(text="⏸ Paused", fg_color=APPLE_AMBER_TINT, text_color=APPLE_AMBER)
+            self.status_pill.configure(text="⏸ Paused", fg_color=APPLE_AMBER_GLOW, text_color=APPLE_AMBER)
             self.status_desc_lbl.configure(text=f"Paused: {reason}", text_color=APPLE_AMBER)
-            self.btn_pause.configure(state="normal", text="Resume", fg_color=APPLE_GREEN_TINT, text_color=APPLE_GREEN)
+            self.btn_pause.configure(state="normal", text="▶ Resume", fg_color=APPLE_GREEN_GLOW, text_color=APPLE_GREEN)
             self.progress_bar.configure(progress_color=APPLE_AMBER)
 
         elif state == EngineState.STOPPED:
-            self.status_pill.configure(text="🛑 Stopped", fg_color=APPLE_CORAL_TINT, text_color=APPLE_CORAL)
-            self.status_desc_lbl.configure(text="Execution stopped via Esc key", text_color=APPLE_CORAL)
-            self.btn_start.configure(state="normal", text=f"Execute  [{self.current_hotkey_label}]", fg_color=APPLE_GREEN)
-            self.btn_pause.configure(state="disabled", text="Pause", fg_color=GLASS_INSET, text_color=TEXT_MUTED)
+            self.status_pill.configure(text="🛑 Stopped", fg_color=APPLE_CORAL_GLOW, text_color=APPLE_CORAL)
+            self.status_desc_lbl.configure(text="Emergency stop triggered (Esc pressed)", text_color=APPLE_CORAL)
+            self.btn_start.configure(state="normal", text=f"▶ Arm & Execute  [ {self.current_hotkey_label} ]", fg_color=APPLE_GREEN)
+            self.btn_pause.configure(state="disabled", text="⏸ Pause", fg_color="#181D2C", text_color=TEXT_MUTED)
             self.progress_bar.configure(progress_color=APPLE_CORAL)
 
         elif state == EngineState.COMPLETED:
             typed = details.get("total_typed", self.engine.chars_typed)
             sec = details.get("elapsed_sec", 0.0)
-            self.status_pill.configure(text="✔ Done", fg_color=APPLE_GREEN_TINT, text_color=APPLE_GREEN)
-            self.status_desc_lbl.configure(text=f"Completed {typed} actions in {sec:.1f}s", text_color=APPLE_GREEN)
-            self.btn_start.configure(state="normal", text=f"Execute  [{self.current_hotkey_label}]", fg_color=APPLE_GREEN)
-            self.btn_pause.configure(state="disabled", text="Pause", fg_color=GLASS_INSET, text_color=TEXT_MUTED)
-            self.progress_bar.set(1.0)
+            self.status_pill.configure(text="✔ Done", fg_color=APPLE_GREEN_GLOW, text_color=APPLE_GREEN)
+            self.status_desc_lbl.configure(text=f"Completed {typed} actions in {sec:.1f}s!", text_color=APPLE_GREEN)
+            self.btn_start.configure(state="normal", text=f"▶ Arm & Execute  [ {self.current_hotkey_label} ]", fg_color=APPLE_GREEN)
+            self.btn_pause.configure(state="disabled", text="⏸ Pause", fg_color="#181D2C", text_color=TEXT_MUTED)
+            self._target_progress = 1.0
             self.progress_bar.configure(progress_color=APPLE_GREEN)
 
         # Forward to Ghost HUD if active
@@ -1306,10 +1461,10 @@ class TypoApp(ctk.CTk):
 
     def _handle_countdown(self, seconds_left: float):
         if seconds_left > 0:
-            self.status_pill.configure(text=f"⏳ {seconds_left:.1f}s", fg_color=APPLE_AMBER_TINT, text_color=APPLE_AMBER)
-            self.status_desc_lbl.configure(text=f"Armed — Switch to target window! Starting in {seconds_left:.1f}s...")
+            self.status_pill.configure(text=f"⏳ {seconds_left:.1f}s", fg_color=APPLE_AMBER_GLOW, text_color=APPLE_AMBER)
+            self.status_desc_lbl.configure(text=f"Armed — Switch to target editor! Starting in {seconds_left:.1f}s...")
         else:
-            self.status_pill.configure(text="⚡ Typing", fg_color=APPLE_GREEN_TINT, text_color=APPLE_GREEN)
+            self.status_pill.configure(text="⚡ Typing", fg_color=APPLE_GREEN_GLOW, text_color=APPLE_GREEN)
             self.status_desc_lbl.configure(text="Typing active...")
 
         if getattr(self, "ghost_hud", None) and self.ghost_hud.winfo_exists():
@@ -1326,7 +1481,8 @@ class TypoApp(ctk.CTk):
         remaining = data["remaining"]
         char = data.get("char", "")
 
-        self.progress_bar.set(pct / 100.0)
+        # Set lerp animation target
+        self._target_progress = min(1.0, max(0.0, pct / 100.0))
         self.lbl_tele_progress.configure(text=f"{typed} / {total} ({pct:.0f}%)")
 
         mins_el = int(elapsed) // 60
@@ -1337,7 +1493,7 @@ class TypoApp(ctk.CTk):
 
         if char:
             clean_ch = char if char not in ("\n", "\t", "\r") else ("↵" if char == "\n" else "⇥")
-            self.lbl_tele_token.configure(text=f"{clean_ch}")
+            self.lbl_tele_token.configure(text=f"[ {clean_ch} ]")
 
         if getattr(self, "ghost_hud", None) and self.ghost_hud.winfo_exists():
             try:
@@ -1346,14 +1502,13 @@ class TypoApp(ctk.CTk):
                 pass
 
     def _handle_error(self, message: str):
-        self.status_pill.configure(text="Notice", fg_color=APPLE_CORAL_TINT, text_color=APPLE_CORAL)
+        self.status_pill.configure(text="⚠️ Notice", fg_color=APPLE_CORAL_GLOW, text_color=APPLE_CORAL)
         self.status_desc_lbl.configure(text=message, text_color=APPLE_CORAL)
 
     def _on_close(self):
         """Graceful shutdown with zero timer leaks and memory release."""
         self._is_closing = True
 
-        # Cancel all pending after timer callbacks immediately
         for after_id in list(self._after_ids):
             try:
                 self.after_cancel(after_id)
@@ -1361,12 +1516,10 @@ class TypoApp(ctk.CTk):
                 pass
         self._after_ids.clear()
 
-        # Stop automation engine and unhook global low-level listeners
         self.engine.stop()
         if self.hotkey_mgr:
             self.hotkey_mgr.stop()
 
-        # Safely teardown Ghost HUD if open
         if getattr(self, "ghost_hud", None) and self.ghost_hud.winfo_exists():
             try:
                 self.ghost_hud.destroy()
@@ -1374,13 +1527,11 @@ class TypoApp(ctk.CTk):
                 pass
             self.ghost_hud = None
 
-        # Destroy window widgets
         try:
             self.destroy()
         except Exception:
             pass
 
-        # Explicit garbage collection pass
         try:
             import gc
             gc.collect()
