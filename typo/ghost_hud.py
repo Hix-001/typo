@@ -1,6 +1,6 @@
 """
 TYPO® — Zero-Focus Transparent Ghost HUD
-Nothing OS 5.0 Edition
+Apple Glass UI (visionOS / Liquid Glass Edition)
 
 Engineered with Win32 Extended Window Styles:
 - WS_EX_NOACTIVATE (0x08000000): NEVER steals keyboard/window focus from Monaco, Chrome, or LeetCode
@@ -8,7 +8,7 @@ Engineered with Win32 Extended Window Styles:
 - WS_EX_TOOLWINDOW (0x00000080): Completely hidden from Alt+Tab and Windows Taskbar
 - WS_EX_LAYERED (0x00080000): Hardware-accelerated alpha transparency
 - Draggable anywhere on desktop without triggering browser 'window.blur' or 'visibilitychange'
-- Designed with Nothing OS 5.0 pure OLED dark aesthetic and authentic Ndot / NType typography
+- Designed with Apple visionOS frosted liquid glass aesthetic, squircle geometry, and luminous neon green glow
 """
 
 import sys
@@ -31,24 +31,25 @@ from typo.win32_api import (
     PRIMARY_HOTKEY_LABEL
 )
 from typo.typing_engine import EngineState
-from typo.fonts import register_fonts, FONT_DOT, FONT_BODY, FONT_MONO
 
-register_fonts()
+# Apple Liquid Glass HUD Design Tokens
+HUD_BG = "#0B0E15"                 # Frosted dark obsidian liquid glass
+HUD_BORDER = "#2A3144"             # Specular glass rim border
+HUD_BORDER_GLOW = "#3E4862"        # Luminous rim highlight
+HUD_TEXT_WHITE = "#FFFFFF"         # Crisp Apple white
+HUD_TEXT_MUTED = "#98989F"         # Apple secondary grey
+HUD_TRACK = "#181B26"              # Capsule slider track
 
-# Nothing OS HUD Design Tokens
-HUD_BG = "#08090C"
-HUD_BORDER = "#1E2028"
-HUD_TEXT_WHITE = "#FFFFFF"
-HUD_TEXT_MUTED = "#8A8F9E"
-HUD_TRACK = "#181A22"
+# Apple State Accents
+COLOR_IDLE = "#181B26"
+COLOR_COUNTDOWN = "#FF9F0A"
+COLOR_TYPING = "#30D158"           # Apple electric green
+COLOR_PAUSED = "#FF9F0A"
+COLOR_STOPPED = "#FF453A"
+COLOR_COMPLETED = "#30D158"
 
-# State Accents
-COLOR_IDLE = "#1C1E26"
-COLOR_COUNTDOWN = "#FFB020"
-COLOR_TYPING = "#D71921"
-COLOR_PAUSED = "#FFB020"
-COLOR_STOPPED = "#D71921"
-COLOR_COMPLETED = "#00D68F"
+FONT_FAMILY = "Segoe UI"
+FONT_MONO = "Consolas"
 
 
 class GhostHUD(ctk.CTkToplevel):
@@ -71,7 +72,7 @@ class GhostHUD(ctk.CTkToplevel):
         self.attributes("-topmost", True)
         self.configure(fg_color=HUD_BG)
 
-        # Build Nothing OS Shell
+        # Build Apple Liquid Glass Shell
         self._build_ui()
 
         # Apply Win32 WS_EX_NOACTIVATE Ghost Styles
@@ -81,19 +82,19 @@ class GhostHUD(ctk.CTkToplevel):
         self.after(100, self._snap_to_top_right)
 
     def _build_ui(self):
-        # Outer Border Frame (Nothing OS Pill Card)
+        # Outer Border Frame (Apple Vision Squircle Card)
         self.outer_frame = ctk.CTkFrame(
             self,
             fg_color=HUD_BG,
             border_color=HUD_BORDER,
             border_width=1,
-            corner_radius=14
+            corner_radius=20
         )
         self.outer_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
         # Top Row
         top_row = ctk.CTkFrame(self.outer_frame, fg_color="transparent")
-        top_row.pack(fill="x", padx=12, pady=(8, 2))
+        top_row.pack(fill="x", padx=14, pady=(8, 2))
 
         # Grip Icon & Title
         title_box = ctk.CTkFrame(top_row, fg_color="transparent")
@@ -101,31 +102,31 @@ class GhostHUD(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             title_box,
-            text="■",
-            font=ctk.CTkFont(family=FONT_BODY, size=9),
-            text_color=COLOR_TYPING
+            text="",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
+            text_color=HUD_TEXT_WHITE
         ).pack(side="left", padx=(0, 4))
 
         self.lbl_grip = ctk.CTkLabel(
             title_box,
-            text="GHOST HUD",
-            font=ctk.CTkFont(family=FONT_DOT, size=11),
+            text="Glass HUD",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
             text_color=HUD_TEXT_WHITE,
             cursor="fleur"
         )
         self.lbl_grip.pack(side="left")
 
-        # State Indicator Pill
+        # State Indicator Pill (Liquid Glass Pill)
         self.lbl_state_pill = ctk.CTkLabel(
             top_row,
             text="● IDLE",
-            font=ctk.CTkFont(family=FONT_MONO, size=10, weight="bold"),
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
             text_color=HUD_TEXT_WHITE,
             fg_color=COLOR_IDLE,
             border_color=HUD_BORDER,
             border_width=1,
-            corner_radius=8,
-            padx=8,
+            corner_radius=10,
+            padx=10,
             pady=2
         )
         self.lbl_state_pill.pack(side="left", padx=8)
@@ -143,7 +144,7 @@ class GhostHUD(ctk.CTkToplevel):
         btn_close = ctk.CTkLabel(
             top_row,
             text="✕",
-            font=ctk.CTkFont(family=FONT_BODY, size=11, weight="bold"),
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
             text_color=HUD_TEXT_MUTED,
             cursor="hand2"
         )
@@ -152,12 +153,12 @@ class GhostHUD(ctk.CTkToplevel):
 
         # Middle Row: Progress Metrics
         mid_row = ctk.CTkFrame(self.outer_frame, fg_color="transparent")
-        mid_row.pack(fill="x", padx=12, pady=(0, 2))
+        mid_row.pack(fill="x", padx=14, pady=(0, 2))
 
         self.lbl_metrics = ctk.CTkLabel(
             mid_row,
             text="Ready • Alt+Z+T to Arm • Esc to Abort",
-            font=ctk.CTkFont(family=FONT_BODY, size=10),
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10),
             text_color=HUD_TEXT_WHITE
         )
         self.lbl_metrics.pack(side="left")
@@ -165,20 +166,20 @@ class GhostHUD(ctk.CTkToplevel):
         self.lbl_stats = ctk.CTkLabel(
             mid_row,
             text="0 / 0 (0%)",
-            font=ctk.CTkFont(family=FONT_DOT, size=11),
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
             text_color=HUD_TEXT_MUTED
         )
         self.lbl_stats.pack(side="right")
 
-        # Bottom Row: Nothing OS Progress Bar
+        # Bottom Row: Apple Glass Capsule Progress Bar
         self.progress_bar = ctk.CTkProgressBar(
             self.outer_frame,
-            height=4,
-            corner_radius=2,
+            height=5,
+            corner_radius=3,
             fg_color=HUD_TRACK,
             progress_color=COLOR_TYPING
         )
-        self.progress_bar.pack(fill="x", padx=12, pady=(4, 8))
+        self.progress_bar.pack(fill="x", padx=14, pady=(4, 8))
         self.progress_bar.set(0.0)
 
         # Enable Draggability without Focus Stealing
@@ -248,40 +249,40 @@ class GhostHUD(ctk.CTkToplevel):
 
         elif state == EngineState.COUNTDOWN:
             delay = details.get("delay", 3.0)
-            self.lbl_state_pill.configure(text=f"⏳ {delay:.1f}s", fg_color="#2A1E0A")
+            self.lbl_state_pill.configure(text=f"⏳ {delay:.1f}s", fg_color="#2F1E08")
             self.lbl_metrics.configure(text="Focus target editor now...")
             self.progress_bar.configure(progress_color=COLOR_COUNTDOWN)
 
         elif state == EngineState.TYPING:
             target = details.get("target", {})
             title = target.get("title", "Target")[:22]
-            self.lbl_state_pill.configure(text="⌨ TYPING", fg_color="#07261C")
+            self.lbl_state_pill.configure(text="⌨ TYPING", fg_color="#0E2916")
             self.lbl_metrics.configure(text=f"Target: {title}")
             self.progress_bar.configure(progress_color=COLOR_COMPLETED)
 
         elif state == EngineState.PAUSED:
             reason = details.get("reason", "Paused")[:28]
-            self.lbl_state_pill.configure(text="⏸ PAUSED", fg_color="#2A1E0A")
+            self.lbl_state_pill.configure(text="⏸ PAUSED", fg_color="#2F1E08")
             self.lbl_metrics.configure(text=reason)
             self.progress_bar.configure(progress_color=COLOR_PAUSED)
 
         elif state == EngineState.STOPPED:
-            self.lbl_state_pill.configure(text="🛑 STOPPED", fg_color="#2A0E11")
+            self.lbl_state_pill.configure(text="🛑 STOPPED", fg_color="#2E1416")
             self.lbl_metrics.configure(text="Aborted (Esc Pressed)")
             self.progress_bar.configure(progress_color=COLOR_STOPPED)
 
         elif state == EngineState.COMPLETED:
-            self.lbl_state_pill.configure(text="✔ COMPLETED", fg_color="#07261C")
+            self.lbl_state_pill.configure(text="✔ COMPLETED", fg_color="#0E2916")
             self.lbl_metrics.configure(text="All tokens typed successfully")
             self.progress_bar.set(1.0)
             self.progress_bar.configure(progress_color=COLOR_COMPLETED)
 
     def update_countdown(self, seconds_left: float):
         if seconds_left > 0:
-            self.lbl_state_pill.configure(text=f"⏳ {seconds_left:.1f}s", fg_color="#2A1E0A")
+            self.lbl_state_pill.configure(text=f"⏳ {seconds_left:.1f}s", fg_color="#2F1E08")
             self.lbl_metrics.configure(text="Switch to target editor...")
         else:
-            self.lbl_state_pill.configure(text="⌨ TYPING", fg_color="#07261C")
+            self.lbl_state_pill.configure(text="⌨ TYPING", fg_color="#0E2916")
 
     def update_progress(self, pct: float, typed: int, total: int, elapsed_s: float, remaining_s: float, char: str):
         self.progress_bar.set(min(1.0, max(0.0, pct / 100.0)))
