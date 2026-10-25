@@ -137,6 +137,7 @@ class TypoApp(ctk.CTk):
         self.ghost_hud = None
         self.active_tab = "Primary Studio"
         self.active_sidebar_nav = "Control Deck"
+        self.switches = {}
 
         # Smooth Animation Engine State
         self._target_progress = 0.0
@@ -1058,7 +1059,8 @@ class TypoApp(ctk.CTk):
             ),
         ]
 
-        self.switches = {}
+        if not hasattr(self, "switches") or self.switches is None:
+            self.switches = {}
 
         for title, desc, icon, callback, default_val, row, col in features:
             padx = (0, 5) if col == 0 else (5, 0)
@@ -1149,16 +1151,111 @@ class TypoApp(ctk.CTk):
         inner.pack(fill="x", padx=18, pady=16)
 
         hdr = ctk.CTkFrame(inner, fg_color="transparent")
-        hdr.pack(fill="x", pady=(0, 12))
+        hdr.pack(fill="x", pady=(0, 10))
 
         ctk.CTkLabel(hdr, text="●", font=ctk.CTkFont(family=FONT_FAMILY, size=12), text_color=AMBER_GOLD).pack(side="left", padx=(0, 6))
         ctk.CTkLabel(hdr, text="Biometrics & Cadence Velocity Faders", font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"), text_color=TEXT_PRIMARY).pack(side="left")
 
+        # ----------------------------------------------------
+        # Hero: Inhuman Mode (360 WPM) Feature Card
+        # ----------------------------------------------------
+        hero_inhuman = ctk.CTkFrame(
+            inner,
+            fg_color="#1F130B",
+            border_color="#92400E",
+            border_width=1,
+            corner_radius=16
+        )
+        hero_inhuman.pack(fill="x", pady=(0, 10))
+
+        h_top = ctk.CTkFrame(hero_inhuman, fg_color="transparent")
+        h_top.pack(fill="x", padx=14, pady=(10, 4))
+
+        # Left: Icon + Title + Status Badge
+        h_left = ctk.CTkFrame(h_top, fg_color="transparent")
+        h_left.pack(side="left")
+
+        ctk.CTkLabel(
+            h_left,
+            text="⚡",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=15),
+            text_color="#F59E0B"
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkLabel(
+            h_left,
+            text="Inhuman Mode (360 WPM)",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=13, weight="bold"),
+            text_color=TEXT_PRIMARY
+        ).pack(side="left", padx=(0, 8))
+
+        self.lbl_inhuman_status_badge = ctk.CTkLabel(
+            h_left,
+            text="STANDBY (HUMAN CADENCE)",
+            font=ctk.CTkFont(family=FONT_MONO_FAMILY, size=10, weight="bold"),
+            text_color="#FCD34D",
+            fg_color="#451A03",
+            border_color="#78350F",
+            border_width=1,
+            corner_radius=6,
+            padx=8,
+            pady=2
+        )
+        self.lbl_inhuman_status_badge.pack(side="left")
+
+        # Right: Instant Engage 360 WPM Button + Toggle Switch
+        h_right = ctk.CTkFrame(h_top, fg_color="transparent")
+        h_right.pack(side="right")
+
+        self.btn_engage_inhuman = ctk.CTkButton(
+            h_right,
+            text="⚡ Engage 360 WPM",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=11, weight="bold"),
+            text_color="#FFFFFF",
+            fg_color="#D97706",
+            hover_color="#B45309",
+            border_color="#F59E0B",
+            border_width=1,
+            corner_radius=12,
+            height=26,
+            width=135,
+            command=self._engage_360_wpm
+        )
+        self.btn_engage_inhuman.pack(side="left", padx=(0, 10))
+
+        self.sw_inhuman_mode = ctk.CTkSwitch(
+            h_right,
+            text="",
+            width=40,
+            height=22,
+            switch_width=36,
+            switch_height=20,
+            progress_color="#F59E0B",
+            button_color=TEXT_PRIMARY,
+            command=self._on_toggle_inhuman_mode
+        )
+        self.sw_inhuman_mode.pack(side="right")
+        self.sw_inhuman_mode.deselect()
+        self.switches["Inhuman Mode (360 WPM)"] = self.sw_inhuman_mode
+
+        # Explanatory caption
+        ctk.CTkLabel(
+            hero_inhuman,
+            text="Overclocks typing velocity to 360 WPM (~33.3ms inter-keystroke cadence) with adaptive 12ms micro-dwell dynamics to bypass OS queue choke and blast through speed tests.",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10),
+            text_color="#D97706",
+            wraplength=640,
+            justify="left"
+        ).pack(anchor="w", padx=14, pady=(0, 10))
+
+        # ----------------------------------------------------
+        # Velocity & Cadence Faders Grid
+        # ----------------------------------------------------
         f_grid = ctk.CTkFrame(inner, fg_color="transparent")
         f_grid.pack(fill="x")
         f_grid.grid_columnconfigure((0, 1), weight=1)
 
-        # WPM Velocity Fader
+        # WPM Velocity Fader (f1)
         f1 = ctk.CTkFrame(f_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
         f1.grid(row=0, column=0, sticky="ew", padx=(0, 5), pady=4)
         f1_h = ctk.CTkFrame(f1, fg_color="transparent")
@@ -1181,8 +1278,8 @@ class TypoApp(ctk.CTk):
         self.slider_wpm = ctk.CTkSlider(
             f1,
             from_=30,
-            to=180,
-            number_of_steps=150,
+            to=360,
+            number_of_steps=330,
             fg_color=SLIDER_BG_TRACK,
             progress_color=AMBER_GOLD,
             button_color=AMBER_GOLD_BRIGHT,
@@ -1191,9 +1288,16 @@ class TypoApp(ctk.CTk):
             command=self._on_wpm_change
         )
         self.slider_wpm.set(80)
-        self.slider_wpm.pack(fill="x", padx=12, pady=(4, 6))
+        self.slider_wpm.pack(fill="x", padx=12, pady=(4, 4))
 
-        # Jitter Fader
+        f1_sub = ctk.CTkFrame(f1, fg_color="transparent")
+        f1_sub.pack(fill="x", padx=12, pady=(0, 6))
+        ctk.CTkLabel(f1_sub, text="30 (Relaxed)", font=ctk.CTkFont(family=FONT_FAMILY, size=9), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(f1_sub, text="80 (Human)", font=ctk.CTkFont(family=FONT_FAMILY, size=9), text_color=TEXT_MUTED).pack(side="left", padx=12)
+        ctk.CTkLabel(f1_sub, text="180 (Extreme)", font=ctk.CTkFont(family=FONT_FAMILY, size=9), text_color=TEXT_MUTED).pack(side="left", padx=12)
+        ctk.CTkLabel(f1_sub, text="⚡ 360 WPM (Inhuman)", font=ctk.CTkFont(family=FONT_FAMILY, size=9, weight="bold"), text_color="#F59E0B").pack(side="right")
+
+        # Jitter Fader (f2)
         f2 = ctk.CTkFrame(f_grid, fg_color=GLASS_INSET, border_color=GLASS_INSET_BORDER, border_width=1, corner_radius=14)
         f2.grid(row=0, column=1, sticky="ew", padx=(5, 0), pady=4)
         f2_h = ctk.CTkFrame(f2, fg_color="transparent")
@@ -1226,9 +1330,17 @@ class TypoApp(ctk.CTk):
             command=self._on_jitter_change
         )
         self.slider_jitter.set(0.25)
-        self.slider_jitter.pack(fill="x", padx=12, pady=(4, 6))
+        self.slider_jitter.pack(fill="x", padx=12, pady=(4, 4))
 
-        # Extra Switches
+        f2_sub = ctk.CTkFrame(f2, fg_color="transparent")
+        f2_sub.pack(fill="x", padx=12, pady=(0, 6))
+        ctk.CTkLabel(f2_sub, text="0% (Robotic)", font=ctk.CTkFont(family=FONT_FAMILY, size=9), text_color=TEXT_MUTED).pack(side="left")
+        ctk.CTkLabel(f2_sub, text="25% (Standard)", font=ctk.CTkFont(family=FONT_FAMILY, size=9), text_color=TEXT_MUTED).pack(side="left", padx=24)
+        ctk.CTkLabel(f2_sub, text="60% (Erratic)", font=ctk.CTkFont(family=FONT_FAMILY, size=9), text_color=TEXT_MUTED).pack(side="right")
+
+        # ----------------------------------------------------
+        # Additional Biometrics & Anti-Detection Switches
+        # ----------------------------------------------------
         addl_sw = ctk.CTkFrame(inner, fg_color="transparent")
         addl_sw.pack(fill="x", pady=(10, 0))
         addl_sw.grid_columnconfigure((0, 1), weight=1)
@@ -1273,11 +1385,83 @@ class TypoApp(ctk.CTk):
     def _on_hotkey_triggered(self):
         self._ui_queue.put(("hotkey_pressed", {}))
 
+    def _engage_360_wpm(self):
+        """Immediately engages Inhuman Mode (360 WPM) with micro-dwell scaling and audio chime."""
+        self.engine.inhuman_mode = True
+        self.engine.wpm = 360.0
+        if hasattr(self, "slider_wpm"):
+            self.slider_wpm.set(360)
+        if hasattr(self, "sw_inhuman_mode"):
+            self.sw_inhuman_mode.select()
+        self._update_wpm_ui(360, is_inhuman=True)
+        if getattr(self, "sound_enabled", True):
+            try:
+                winsound.MessageBeep(winsound.MB_ICONASTERISK)
+            except Exception:
+                pass
+
+    def _on_toggle_inhuman_mode(self):
+        is_on = bool(self.sw_inhuman_mode.get())
+        self.engine.inhuman_mode = is_on
+        if is_on:
+            self.engine.wpm = 360.0
+            if hasattr(self, "slider_wpm"):
+                self.slider_wpm.set(360)
+            self._update_wpm_ui(360, is_inhuman=True)
+            if getattr(self, "sound_enabled", True):
+                try:
+                    winsound.MessageBeep(winsound.MB_ICONASTERISK)
+                except Exception:
+                    pass
+        else:
+            self.engine.wpm = 80.0
+            if hasattr(self, "slider_wpm"):
+                self.slider_wpm.set(80)
+            self._update_wpm_ui(80, is_inhuman=False)
+
     def _on_wpm_change(self, val):
         wpm = round(float(val))
         self.engine.wpm = float(wpm)
+        is_inhuman = (wpm >= 300)
+        self.engine.inhuman_mode = is_inhuman
+        if hasattr(self, "sw_inhuman_mode"):
+            if is_inhuman and not self.sw_inhuman_mode.get():
+                self.sw_inhuman_mode.select()
+            elif not is_inhuman and self.sw_inhuman_mode.get():
+                self.sw_inhuman_mode.deselect()
+        self._update_wpm_ui(wpm, is_inhuman=is_inhuman)
+
+    def _update_wpm_ui(self, wpm: int, is_inhuman: bool):
         if hasattr(self, "lbl_wpm_val"):
-            self.lbl_wpm_val.configure(text=f"{wpm} WPM")
+            if is_inhuman:
+                self.lbl_wpm_val.configure(
+                    text=f"⚡ {wpm} WPM (Inhuman)",
+                    text_color="#FFFBEB",
+                    fg_color="#78350F",
+                    border_color="#F59E0B"
+                )
+            else:
+                self.lbl_wpm_val.configure(
+                    text=f"{wpm} WPM",
+                    text_color=AMBER_GOLD,
+                    fg_color=AMBER_PILL_BG,
+                    border_color=AMBER_PILL_BORDER
+                )
+        if hasattr(self, "lbl_inhuman_status_badge"):
+            if is_inhuman:
+                self.lbl_inhuman_status_badge.configure(
+                    text="ACTIVE · 360 WPM INHUMAN",
+                    text_color="#FEF08A",
+                    fg_color="#78350F",
+                    border_color="#F59E0B"
+                )
+            else:
+                self.lbl_inhuman_status_badge.configure(
+                    text="STANDBY (HUMAN CADENCE)",
+                    text_color="#FCD34D",
+                    fg_color="#451A03",
+                    border_color="#78350F"
+                )
 
     def _on_jitter_change(self, val):
         jitter = float(val)
