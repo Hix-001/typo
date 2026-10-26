@@ -473,12 +473,23 @@ class MainWindow(QMainWindow):
 
         hk_lay.addWidget(make_label("HARDWARE HOTKEY", 8, "#A88B77", bold=True))
 
-        # Inset Key Capsule
-        key_capsule = QFrame()
+        # Inset Key Capsule (Interactive trigger button)
+        key_capsule = QPushButton()
+        key_capsule.setCursor(Qt.CursorShape.PointingHandCursor)
+        key_capsule.setToolTip("Click or press Alt + Z + T to start typing")
+        key_capsule.clicked.connect(self._trigger_execution)
         key_capsule.setStyleSheet("""
-            background: rgba(14, 9, 5, 160);
-            border: 1px solid rgba(255, 190, 130, 55);
-            border-radius: 8px;
+            QPushButton {
+                background: rgba(14, 9, 5, 160);
+                border: 1px solid rgba(255, 190, 130, 55);
+                border-radius: 8px;
+                text-align: left;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background: rgba(36, 22, 13, 200);
+                border: 1px solid rgba(255, 200, 135, 110);
+            }
         """)
         kc_lay = QHBoxLayout(key_capsule)
         kc_lay.setContentsMargins(10, 5, 10, 5)
@@ -555,6 +566,9 @@ class MainWindow(QMainWindow):
 
         # Right Action Pills
         self.btn_target = make_pill_button("● Target: Standby")
+        self.btn_target.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_target.setToolTip("Click to start or stop typing automation")
+        self.btn_target.clicked.connect(self._toggle_execution)
         self.btn_target.setStyleSheet("""
             QPushButton {
                 color: #FFFFFF;
@@ -1194,10 +1208,14 @@ class MainWindow(QMainWindow):
 
     def _toggle_ghost_hud(self):
         from typo.ghost_hud import GhostHUD
-        if self.ghost_hud is None or not self.ghost_hud.winfo_exists():
-            self.ghost_hud = GhostHUD(self, on_close_callback=lambda: setattr(self, "ghost_hud", None))
-            self.ghost_hud.show_hud()
-            self.btn_ghost_hud.setText("◉ Ghost HUD (On)")
+        if self.ghost_hud is None:
+            try:
+                self.ghost_hud = GhostHUD(master=None, on_close_callback=lambda: setattr(self, "ghost_hud", None))
+                self.ghost_hud.show_hud()
+                self.btn_ghost_hud.setText("◉ Ghost HUD (On)")
+            except Exception as e:
+                print(f"[Ghost HUD] Open note: {e}")
+                self.ghost_hud = None
         else:
             try:
                 self.ghost_hud.destroy()
@@ -1267,7 +1285,10 @@ class MainWindow(QMainWindow):
     # ==========================================
     def _init_hotkeys(self):
         try:
-            self.hotkey_mgr = GlobalHotKeyManager(callback=self._on_hotkey_triggered)
+            self.hotkey_mgr = GlobalHotKeyManager(
+                callback=self._on_hotkey_triggered,
+                abort_callback=self._on_abort_triggered
+            )
             self.hotkey_mgr.start()
         except Exception as e:
             print(f"[TYPO Hotkey] Initialization note: {e}")
@@ -1275,14 +1296,37 @@ class MainWindow(QMainWindow):
     def _on_hotkey_triggered(self):
         QTimer.singleShot(0, self._trigger_execution)
 
-    def _trigger_execution(self):
-        text = self.editor.toPlainText()
-        if not text or text.startswith("Windows clipboard buffer is empty."):
-            text, is_empty, err_msg = get_current_clipboard()
-            if is_empty or not text:
-                text = SAMPLE_CODE
+    def _on_abort_triggered(self):
+        QTimer.singleShot(0, self._trigger_abort)
 
-        self.engine.start(text)
+    def _toggle_execution(self):
+        if self.engine.state in (EngineState.COUNTDOWN, EngineState.TYPING):
+            self._trigger_abort()
+        else:
+            self._trigger_execution()
+
+    def _trigger_execution(self):
+        try:
+            if self.engine.state in (EngineState.COUNTDOWN, EngineState.TYPING):
+                return
+            text = self.editor.toPlainText()
+            if not text or text.startswith("Windows clipboard buffer is empty."):
+                text, is_empty, err_msg = get_current_clipboard()
+                if is_empty or not text:
+                    text = SAMPLE_CODE
+                    self.editor.setPlainText(SAMPLE_CODE)
+                    self._update_code_stats()
+
+            self.btn_target.setText("⏳ Armed...")
+            self.engine.start(text)
+            if self.sound_enabled:
+                try:
+                    winsound.MessageBeep(winsound.MB_OK)
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[TYPO Trigger Error] {e}")
+            self.btn_target.setText(f"❌ Error: {str(e)[:14]}")
 
     def _trigger_abort(self):
         self.engine.stop()
@@ -1292,6 +1336,13 @@ class MainWindow(QMainWindow):
                 winsound.MessageBeep(winsound.MB_ICONHAND)
             except Exception:
                 pass
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self._trigger_abort()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def _on_engine_state_change(self, state: str, details: dict):
         QTimer.singleShot(0, lambda: self._apply_state_change(state, details))
@@ -1313,16 +1364,36 @@ class MainWindow(QMainWindow):
         elif state == EngineState.COMPLETED:
             self.btn_target.setText("✔ Done (100%)")
 
+        if self.ghost_hud and hasattr(self.ghost_hud, "update_state"):
+            try:
+                self.ghost_hud.update_state(state, details)
+            except Exception:
+                pass
+
     def _on_engine_progress(self, pct, typed, total, elapsed, remaining, char):
-        pass
+        if self.ghost_hud and hasattr(self.ghost_hud, "update_progress"):
+            try:
+                self.ghost_hud.update_progress(pct, typed, total, elapsed, remaining, char)
+            except Exception:
+                pass
 
     def _on_engine_countdown(self, seconds_left):
         QTimer.singleShot(0, lambda: self.btn_target.setText(f"⏳ Armed: {seconds_left:.1f}s"))
+        if self.ghost_hud and hasattr(self.ghost_hud, "update_countdown"):
+            try:
+                self.ghost_hud.update_countdown(seconds_left)
+            except Exception:
+                pass
 
     def closeEvent(self, event):
         self.engine.stop()
         if self.hotkey_mgr:
             self.hotkey_mgr.stop()
+        if self.ghost_hud:
+            try:
+                self.ghost_hud.destroy()
+            except Exception:
+                pass
         event.accept()
 
 
