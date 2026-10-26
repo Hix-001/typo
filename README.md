@@ -78,11 +78,12 @@ Activated globally via **`Alt + Z + T`** and instant **`Esc`** emergency abort.
 - Windows 10 or Windows 11 (64-bit)
 - Python 3.10+ installed ([python.org](https://www.python.org))
 
-### Launch
-Run the included one-click batch launcher:
+### Launch (Zero Setup on any Windows Laptop)
+Simply run the included batch launcher:
 ```cmd
 run.bat
 ```
+> **Note**: `run.bat` automatically verifies your environment and installs any missing dependencies (`PySide6`, `pynput`) on first run. No manual `pip install` commands needed!
 
 Or run via command line:
 ```powershell
