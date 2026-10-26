@@ -588,6 +588,16 @@ class TypingEngine:
 
         self.start_typing_text(text)
 
+    def start(self, raw_text: Optional[str] = None):
+        """
+        Public trigger method. If raw_text is provided, starts typing that text.
+        Otherwise triggers from clipboard.
+        """
+        if raw_text is not None and len(raw_text) > 0:
+            self.start_typing_text(raw_text)
+        else:
+            self.trigger_from_clipboard()
+
     def start_typing_text(self, raw_text: str):
         """Starts the background typing worker with the given text."""
         if self.state in (EngineState.COUNTDOWN, EngineState.TYPING):
@@ -684,7 +694,14 @@ class TypingEngine:
             # Check target window focus
             if self.auto_pause_on_focus_loss and self.target_window.get("hwnd"):
                 current_window = get_foreground_window_info()
-                if current_window.get("hwnd") != self.target_window.get("hwnd"):
+                target_proc = str(self.target_window.get("process_name", "")).lower()
+                is_typo_target = "typo" in target_proc or "python" in target_proc
+                
+                # If target window was TYPO itself, automatically rebind to the active external editor
+                if is_typo_target and current_window.get("hwnd") != self.target_window.get("hwnd"):
+                    self.target_window = current_window
+                    self._set_state(EngineState.TYPING, {"target": self.target_window})
+                elif current_window.get("hwnd") != self.target_window.get("hwnd"):
                     self._pause_event.clear()
                     pause_start_ts = time.time()
                     self._set_state(EngineState.PAUSED, {
@@ -696,6 +713,11 @@ class TypingEngine:
                         if self._stop_event.is_set() or is_escape_pressed():
                             self._set_state(EngineState.STOPPED, {"reason": "Cancelled while paused"})
                             return
+                        # Automatically resume when user switches back to the target window
+                        active_win = get_foreground_window_info()
+                        if active_win.get("hwnd") == self.target_window.get("hwnd"):
+                            self._pause_event.set()
+                            break
                         time.sleep(0.05)
 
                     accumulated_pause_duration += (time.time() - pause_start_ts)
