@@ -26,10 +26,18 @@ def build_executable():
         print("[INFO] Installing PyInstaller...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
-    # 2. Locate CustomTkinter package directory for assets
-    import customtkinter
-    ctk_path = os.path.dirname(customtkinter.__file__)
-    print(f"[OK] CustomTkinter assets located at: {ctk_path}")
+    # 2. Verify assets and fonts exist
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    assets_dir = os.path.join(base_dir, "typo", "assets")
+    fonts_dir = os.path.join(base_dir, "fonts")
+
+    data_args = []
+    if os.path.exists(assets_dir):
+        data_args.append(f"--add-data={assets_dir};typo/assets")
+        print(f"[OK] Assets directory located: {assets_dir}")
+    if os.path.exists(fonts_dir):
+        data_args.append(f"--add-data={fonts_dir};fonts")
+        print(f"[OK] Fonts directory located: {fonts_dir}")
 
     # 3. Clean old build artifacts
     for folder in ["build", "dist"]:
@@ -37,16 +45,19 @@ def build_executable():
             print(f"[INFO] Cleaning old '{folder}' directory...")
             shutil.rmtree(folder, ignore_errors=True)
 
-    # 4. Construct PyInstaller command
+    # 4. Construct PyInstaller command for PySide6 Liquid Glass
     cmd = [
         sys.executable,
         "-m",
         "PyInstaller",
         "--noconfirm",
-        "--onedir",                # Onedir starts fast and reliably loads all DLLs
+        "--onedir",                # Onedir ensures instant launch and full Qt DLL loading
         "--windowed",              # No terminal window
         "--name", "TYPO",
-        f"--add-data={ctk_path};customtkinter",
+        "--collect-all", "PySide6",
+        "--hidden-import", "pynput.keyboard._win32",
+        "--hidden-import", "pynput.mouse._win32",
+    ] + data_args + [
         "--clean",
         "main.py"
     ]
