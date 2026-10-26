@@ -19,7 +19,7 @@ import winsound
 import ctypes
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer
+from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer, QObject
 from PySide6.QtGui import (
     QColor, QFont, QFontDatabase, QLinearGradient, QRadialGradient, QPainter, QPen,
     QBrush, QIcon, QPixmap, QPainterPath
@@ -50,6 +50,20 @@ FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 # Typography Hierarchy (Native Apple San Francisco Pro, SF Compact, New York, System Fallbacks)
 FONT_FAMILIES = ["SF Pro", "SF Compact", "Segoe UI", "Inter", "-apple-system", "sans-serif"]
 MONO_FAMILIES = ["Consolas", "Courier New", "monospace"]
+
+
+class EngineBridge(QObject):
+    """
+    Thread-safe Qt Signal Bridge.
+    Marshals background thread callbacks (pynput hook thread & TypoWorkerThread)
+    cleanly into the Qt main GUI event loop via QueuedConnection.
+    """
+    sig_hotkey = Signal()
+    sig_abort = Signal()
+    sig_state_change = Signal(str, dict)
+    sig_countdown = Signal(float)
+    sig_progress = Signal(float, int, int, float, float, str)
+    sig_error = Signal(str)
 
 
 def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mono: bool = False) -> QFont:
@@ -327,10 +341,20 @@ class MainWindow(QMainWindow):
         self.workspace = self._build_workspace()
         root_layout.addWidget(self.workspace, 1)
 
-        # Bind Engine Callbacks
-        self.engine.on_state_change = self._on_engine_state_change
-        self.engine.on_progress = self._on_engine_progress
-        self.engine.on_countdown = self._on_engine_countdown
+        # Thread-Safe Qt Signal Bridge for Background Threads
+        self.bridge = EngineBridge()
+        self.bridge.sig_hotkey.connect(self._trigger_execution)
+        self.bridge.sig_abort.connect(self._trigger_abort)
+        self.bridge.sig_state_change.connect(self._apply_state_change)
+        self.bridge.sig_countdown.connect(self._apply_countdown_tick)
+        self.bridge.sig_progress.connect(self._apply_progress_tick)
+        self.bridge.sig_error.connect(self._apply_engine_error)
+
+        # Bind Engine Callbacks via Bridge
+        self.engine.on_state_change = self.bridge.sig_state_change.emit
+        self.engine.on_countdown = self.bridge.sig_countdown.emit
+        self.engine.on_progress = self.bridge.sig_progress.emit
+        self.engine.on_error = self.bridge.sig_error.emit
 
         # Initialize Global Hotkey
         self._init_hotkeys()
@@ -493,8 +517,11 @@ class MainWindow(QMainWindow):
         """)
         kc_lay = QHBoxLayout(key_capsule)
         kc_lay.setContentsMargins(10, 5, 10, 5)
-        kc_lay.addWidget(make_label("⌥", 11, "#F59E0B", bold=True))
+        opt_lbl = make_label("⌥", 11, "#F59E0B", bold=True)
+        opt_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        kc_lay.addWidget(opt_lbl)
         self.lbl_hotkey_disp = make_label(f"  {self.current_hotkey_label}  ", 9, "#FFFFFF", bold=True, mono=True)
+        self.lbl_hotkey_disp.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         kc_lay.addWidget(self.lbl_hotkey_disp, 1)
         hk_lay.addWidget(key_capsule)
 
@@ -1286,18 +1313,12 @@ class MainWindow(QMainWindow):
     def _init_hotkeys(self):
         try:
             self.hotkey_mgr = GlobalHotKeyManager(
-                callback=self._on_hotkey_triggered,
-                abort_callback=self._on_abort_triggered
+                callback=self.bridge.sig_hotkey.emit,
+                abort_callback=self.bridge.sig_abort.emit
             )
             self.hotkey_mgr.start()
         except Exception as e:
             print(f"[TYPO Hotkey] Initialization note: {e}")
-
-    def _on_hotkey_triggered(self):
-        QTimer.singleShot(0, self._trigger_execution)
-
-    def _on_abort_triggered(self):
-        QTimer.singleShot(0, self._trigger_abort)
 
     def _toggle_execution(self):
         if self.engine.state in (EngineState.COUNTDOWN, EngineState.TYPING):
@@ -1344,9 +1365,6 @@ class MainWindow(QMainWindow):
         else:
             super().keyPressEvent(event)
 
-    def _on_engine_state_change(self, state: str, details: dict):
-        QTimer.singleShot(0, lambda: self._apply_state_change(state, details))
-
     def _apply_state_change(self, state: str, details: dict):
         if state == EngineState.IDLE:
             self.btn_target.setText("● Target: Standby")
@@ -1361,8 +1379,10 @@ class MainWindow(QMainWindow):
             self.btn_target.setText("⏸ Paused")
         elif state == EngineState.STOPPED:
             self.btn_target.setText("🛑 Stopped")
+            QTimer.singleShot(1500, lambda: self.btn_target.setText("● Target: Standby") if self.engine.state in (EngineState.STOPPED, EngineState.IDLE) else None)
         elif state == EngineState.COMPLETED:
             self.btn_target.setText("✔ Done (100%)")
+            QTimer.singleShot(2500, lambda: self.btn_target.setText("● Target: Standby") if self.engine.state in (EngineState.COMPLETED, EngineState.IDLE) else None)
 
         if self.ghost_hud and hasattr(self.ghost_hud, "update_state"):
             try:
@@ -1370,20 +1390,26 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
 
-    def _on_engine_progress(self, pct, typed, total, elapsed, remaining, char):
+    def _apply_countdown_tick(self, seconds_left: float):
+        if seconds_left > 0:
+            self.btn_target.setText(f"⏳ Armed: {seconds_left:.1f}s")
+        else:
+            self.btn_target.setText("⚡ Typing...")
+        if self.ghost_hud and hasattr(self.ghost_hud, "update_countdown"):
+            try:
+                self.ghost_hud.update_countdown(seconds_left)
+            except Exception:
+                pass
+
+    def _apply_progress_tick(self, pct, typed, total, elapsed, remaining, char):
         if self.ghost_hud and hasattr(self.ghost_hud, "update_progress"):
             try:
                 self.ghost_hud.update_progress(pct, typed, total, elapsed, remaining, char)
             except Exception:
                 pass
 
-    def _on_engine_countdown(self, seconds_left):
-        QTimer.singleShot(0, lambda: self.btn_target.setText(f"⏳ Armed: {seconds_left:.1f}s"))
-        if self.ghost_hud and hasattr(self.ghost_hud, "update_countdown"):
-            try:
-                self.ghost_hud.update_countdown(seconds_left)
-            except Exception:
-                pass
+    def _apply_engine_error(self, err_msg: str):
+        self.btn_target.setText(f"❌ {err_msg[:16]}")
 
     def closeEvent(self, event):
         self.engine.stop()
