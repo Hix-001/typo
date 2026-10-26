@@ -58,6 +58,8 @@ class GhostHUD(ctk.CTkToplevel):
     Floats over target code editor and monitors progress without stealing focus.
     """
     def __init__(self, master=None, on_close_callback=None):
+        if master is not None and not hasattr(master, "tk"):
+            master = None
         super().__init__(master)
 
         self.on_close_callback = on_close_callback
