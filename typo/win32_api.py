@@ -424,6 +424,19 @@ def send_unicode_with_dwell(code_unit: int, dwell_s: float = 0.05) -> bool:
     return ok_down and ok_up
 
 
+_pynput_ctrl = None
+
+def _get_pynput_controller():
+    global _pynput_ctrl
+    if _pynput_ctrl is None:
+        try:
+            from pynput.keyboard import Controller
+            _pynput_ctrl = Controller()
+        except Exception:
+            pass
+    return _pynput_ctrl
+
+
 def send_virtual_key_with_dwell(vk_code: int, dwell_s: float = 0.05) -> bool:
     """
     Simulates genuine human virtual key dwell time (Enter, Tab, Backspace).
@@ -432,7 +445,33 @@ def send_virtual_key_with_dwell(vk_code: int, dwell_s: float = 0.05) -> bool:
     if dwell_s > 0.001:
         time.sleep(dwell_s)
     ok_up = send_virtual_key_up(vk_code)
-    return ok_down and ok_up
+    ok = ok_down and ok_up
+    if not ok:
+        ctrl = _get_pynput_controller()
+        if ctrl:
+            try:
+                from pynput.keyboard import Key
+                vk_map = {
+                    VK_RETURN: Key.enter,
+                    VK_TAB: Key.tab,
+                    VK_BACK: Key.backspace,
+                    VK_DELETE: Key.delete,
+                    VK_UP: Key.up,
+                    VK_DOWN: Key.down,
+                    VK_LEFT: Key.left,
+                    VK_RIGHT: Key.right,
+                    VK_ESCAPE: Key.esc,
+                }
+                k = vk_map.get(vk_code)
+                if k:
+                    ctrl.press(k)
+                    if dwell_s > 0.001:
+                        time.sleep(dwell_s)
+                    ctrl.release(k)
+                    return True
+            except Exception:
+                pass
+    return ok
 
 
 def type_character_native(char: str) -> bool:
@@ -457,7 +496,17 @@ def type_character_native(char: str) -> bool:
         
         ok_high = send_unicode_codepoint(high_surrogate)
         ok_low = send_unicode_codepoint(low_surrogate)
-        return ok_high and ok_low
+        ok = ok_high and ok_low
+
+    if not ok:
+        ctrl = _get_pynput_controller()
+        if ctrl:
+            try:
+                ctrl.type(char)
+                return True
+            except Exception:
+                pass
+    return ok
 
 
 def type_character_biometric(char: str, dwell_s: float = 0.05) -> bool:
@@ -474,7 +523,7 @@ def type_character_biometric(char: str, dwell_s: float = 0.05) -> bool:
 
     codepoint = ord(char)
     if codepoint <= 0xFFFF:
-        return send_unicode_with_dwell(codepoint, dwell_s)
+        ok = send_unicode_with_dwell(codepoint, dwell_s)
     else:
         utf16_bytes = char.encode("utf-16le")
         high_surrogate = int.from_bytes(utf16_bytes[0:2], "little")
@@ -482,7 +531,17 @@ def type_character_biometric(char: str, dwell_s: float = 0.05) -> bool:
         
         ok_high = send_unicode_with_dwell(high_surrogate, dwell_s / 2.0)
         ok_low = send_unicode_with_dwell(low_surrogate, dwell_s / 2.0)
-        return ok_high and ok_low
+        ok = ok_high and ok_low
+
+    if not ok:
+        ctrl = _get_pynput_controller()
+        if ctrl:
+            try:
+                ctrl.type(char)
+                return True
+            except Exception:
+                pass
+    return ok
 
 
 def make_window_ghost(hwnd: int, alpha: int = 240) -> bool:
@@ -598,15 +657,19 @@ def simulate_select_and_replace(back_count: int, replace_text: str, dwell_s: flo
 
 class GlobalHotKeyManager:
     """
-    Dedicated Global Hotkey Manager for Alt + Z + T.
-    Uses a low-level keyboard listener to detect when the Alt key,
-    'Z', and 'T' are simultaneously pressed regardless of order or Caps Lock.
+    Dedicated Global Hotkey Manager for Alt + Z + T and emergency abort via Esc.
+    Uses a low-level keyboard listener to detect:
+    1) Simultaneous chord: Alt, 'Z', and 'T' all held down.
+    2) Sequential chord: Alt is held, and 'Z' then 'T' are pressed in succession.
+    3) Escape key: Immediately triggers emergency abort.
     """
-    def __init__(self, callback=None):
+    def __init__(self, callback=None, abort_callback=None):
         self.callback = callback
+        self.abort_callback = abort_callback
         self._listener: Optional[Listener] = None
         self._pressed_keys = set()
         self._triggered = False
+        self._last_z_time = 0.0
         self._lock = threading.Lock()
         self.is_registered = False
         self.last_error = ""
@@ -628,11 +691,28 @@ class GlobalHotKeyManager:
         return None
 
     def _on_press(self, key):
+        # 1. Emergency Abort Key Check (Esc)
+        if key == Key.esc or (hasattr(key, "vk") and key.vk == 0x1B):
+            if self.abort_callback:
+                try:
+                    self.abort_callback()
+                except Exception as e:
+                    print(f"[TYPO HotKey] Abort callback error: {e}")
+            return
+
         k = self._normalize_key(key)
         if k:
             with self._lock:
                 self._pressed_keys.add(k)
-                if {"ALT", "z", "t"}.issubset(self._pressed_keys):
+                now = time.time()
+
+                if k == "z" and "ALT" in self._pressed_keys:
+                    self._last_z_time = now
+
+                simultaneous = {"ALT", "z", "t"}.issubset(self._pressed_keys)
+                sequential = ("ALT" in self._pressed_keys) and (k == "t") and (now - self._last_z_time <= 1.5)
+
+                if simultaneous or sequential:
                     if not self._triggered:
                         self._triggered = True
                         if self.callback:
