@@ -35,11 +35,17 @@ from typo.win32_api import GlobalHotKeyManager, PRIMARY_HOTKEY_LABEL, get_foregr
 from typo.clipboard import get_current_clipboard, analyze_clipboard_content, set_test_clipboard_text
 
 APP_NAME = "TYPO — Studio Glass Edition"
-ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+if getattr(sys, "frozen", False):
+    ROOT_DIR = sys._MEIPASS
+    ASSETS_DIR = os.path.join(ROOT_DIR, "typo", "assets")
+    USER_FONTS_DIR = os.path.join(ROOT_DIR, "fonts")
+else:
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+    USER_FONTS_DIR = os.path.join(ROOT_DIR, "fonts")
+
 WALLPAPER_PATH = os.path.join(ASSETS_DIR, "glass_bg_amber.png")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
-USER_FONTS_DIR = os.path.join(ROOT_DIR, "fonts")
 
 # Typography Hierarchy (Native Apple San Francisco Pro, SF Compact, New York, System Fallbacks)
 FONT_FAMILIES = ["SF Pro", "SF Compact", "Segoe UI", "Inter", "-apple-system", "sans-serif"]
