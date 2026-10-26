@@ -692,16 +692,18 @@ class TypingEngine:
                 return
 
             # Check target window focus
-            if self.auto_pause_on_focus_loss and self.target_window.get("hwnd"):
+            if self.auto_pause_on_focus_loss:
                 current_window = get_foreground_window_info()
                 target_proc = str(self.target_window.get("process_name", "")).lower()
-                is_typo_target = "typo" in target_proc or "python" in target_proc
-                
-                # If target window was TYPO itself, automatically rebind to the active external editor
-                if is_typo_target and current_window.get("hwnd") != self.target_window.get("hwnd"):
-                    self.target_window = current_window
-                    self._set_state(EngineState.TYPING, {"target": self.target_window})
-                elif current_window.get("hwnd") != self.target_window.get("hwnd"):
+                target_title = str(self.target_window.get("title", "")).lower()
+                is_typo_target = "typo" in target_title or "typo.exe" in target_proc
+
+                # If target window is TYPO itself or unassigned, bind to active external window
+                if not self.target_window.get("hwnd") or (is_typo_target and current_window.get("hwnd") != self.target_window.get("hwnd")):
+                    if current_window.get("hwnd"):
+                        self.target_window = current_window
+                        self._set_state(EngineState.TYPING, {"target": self.target_window})
+                elif current_window.get("hwnd") and self.target_window.get("hwnd") and current_window.get("hwnd") != self.target_window.get("hwnd"):
                     self._pause_event.clear()
                     pause_start_ts = time.time()
                     self._set_state(EngineState.PAUSED, {
