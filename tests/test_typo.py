@@ -153,6 +153,16 @@ class TestClipboardAnalytics(unittest.TestCase):
         res = analyze_clipboard_content(text)
         self.assertTrue(res["has_unicode"])
 
+    def test_clipboard_sequence_number_tracking(self):
+        from typo.clipboard import get_clipboard_sequence_number, set_test_clipboard_text, get_current_clipboard
+        seq1 = get_clipboard_sequence_number()
+        set_test_clipboard_text("test sequence tracking")
+        seq2 = get_clipboard_sequence_number()
+        self.assertGreater(seq2, 0)
+        text, is_empty, _ = get_current_clipboard()
+        self.assertFalse(is_empty)
+        self.assertEqual(text, "test sequence tracking")
+
 
 class TestWin32API(unittest.TestCase):
     def test_foreground_window_structure(self):
