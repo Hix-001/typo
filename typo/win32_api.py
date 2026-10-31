@@ -194,6 +194,10 @@ user32.SetLayeredWindowAttributes.restype = wintypes.BOOL
 user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
 user32.SetWindowPos.restype = wintypes.BOOL
 
+if hasattr(user32, "GetClipboardSequenceNumber"):
+    user32.GetClipboardSequenceNumber.argtypes = []
+    user32.GetClipboardSequenceNumber.restype = wintypes.DWORD
+
 user32.GetCursorPos.argtypes = [ctypes.POINTER(POINT)]
 user32.GetCursorPos.restype = wintypes.BOOL
 
@@ -254,6 +258,20 @@ def read_clipboard_unicode(retries=3, delay_between=0.05) -> tuple[str, bool, st
         time.sleep(delay_between)
     
     return ("", True, "Could not open Windows clipboard (locked by another application).")
+
+
+def get_clipboard_sequence_number() -> int:
+    """
+    Returns the Windows clipboard sequence number.
+    Increments whenever clipboard contents change.
+    Extremely fast, non-locking, and zero-allocation.
+    """
+    try:
+        if hasattr(user32, "GetClipboardSequenceNumber"):
+            return int(user32.GetClipboardSequenceNumber())
+    except Exception:
+        pass
+    return 0
 
 
 # ==========================================
