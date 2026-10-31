@@ -19,7 +19,7 @@ import winsound
 import ctypes
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer, QObject
+from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer, QObject, QEvent
 from PySide6.QtGui import (
     QColor, QFont, QFontDatabase, QLinearGradient, QRadialGradient, QPainter, QPen,
     QBrush, QIcon, QPixmap, QPainterPath
@@ -32,7 +32,12 @@ from PySide6.QtWidgets import (
 
 from typo.typing_engine import TypingEngine, EngineState
 from typo.win32_api import GlobalHotKeyManager, PRIMARY_HOTKEY_LABEL, get_foreground_window_info
-from typo.clipboard import get_current_clipboard, analyze_clipboard_content, set_test_clipboard_text
+from typo.clipboard import (
+    get_current_clipboard,
+    analyze_clipboard_content,
+    set_test_clipboard_text,
+    get_clipboard_sequence_number
+)
 
 APP_NAME = "TYPO — Studio Glass Edition"
 if getattr(sys, "frozen", False):
@@ -309,6 +314,7 @@ class MainWindow(QMainWindow):
         self.sound_enabled = True
         self.ghost_hud = None
         self._last_clipboard_text = ""
+        self._last_clip_seq = get_clipboard_sequence_number()
         self.active_tab_name = "Primary Studio"
 
         # Apply Global DWM Dark Mode on Windows
@@ -359,17 +365,21 @@ class MainWindow(QMainWindow):
         # Initialize Global Hotkey
         self._init_hotkeys()
 
-        # Background Polling Timers
+        # Real-time System Clipboard Event Listener
+        self.clipboard = QApplication.clipboard()
+        self.clipboard.dataChanged.connect(self._on_clipboard_data_changed)
+
+        # Background Polling Timers (fast fallback monitor for external clipboard updates)
         self.clip_timer = QTimer(self)
         self.clip_timer.timeout.connect(self._poll_clipboard)
-        self.clip_timer.start(1000)
+        self.clip_timer.start(400)
 
         self.target_timer = QTimer(self)
         self.target_timer.timeout.connect(self._poll_target_window)
-        self.target_timer.start(1200)
+        self.target_timer.start(800)
 
         # Initial Refresh
-        self._refresh_clipboard()
+        self._sync_clipboard(force=True)
 
     def _setup_dwm(self):
         try:
@@ -1251,31 +1261,74 @@ class MainWindow(QMainWindow):
             self.ghost_hud = None
             self.btn_ghost_hud.setText("◉ Ghost HUD")
 
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.ActivationChange:
+            if self.isActiveWindow():
+                self._sync_clipboard(force=False)
+        super().changeEvent(event)
+
     # ==========================================
     # Clipboard & Target Polling
     # ==========================================
-    def _poll_clipboard(self):
-        if self.engine.state == EngineState.IDLE:
-            text, is_empty, err_msg = get_current_clipboard()
-            if text != self._last_clipboard_text and not is_empty:
+    def _on_clipboard_data_changed(self):
+        """Instantaneous handler triggered by Qt when system clipboard updates."""
+        if self.engine.state in (EngineState.COUNTDOWN, EngineState.TYPING):
+            return
+        self._sync_clipboard(force=False)
+
+    def _sync_clipboard(self, force: bool = False):
+        """
+        Synchronizes the live code buffer with the system clipboard.
+        Detects clipboard changes via sequence number and content verification.
+        Does not disrupt user if they are currently typing in the editor widget.
+        """
+        if not force and self.engine.state in (EngineState.COUNTDOWN, EngineState.TYPING):
+            return
+
+        seq = get_clipboard_sequence_number()
+        # Fast path: sequence number unchanged and not forced
+        if not force and seq != 0 and seq == self._last_clip_seq:
+            return
+
+        text, is_empty, err_msg = get_current_clipboard()
+        self._last_clip_seq = seq
+
+        if not is_empty and text:
+            editor_text = self.editor.toPlainText()
+            # If editor has focus and clipboard text matches current editor text, don't clobber
+            if not force and self.editor.hasFocus() and text == editor_text:
+                self._last_clipboard_text = text
+                return
+
+            if force or text != self._last_clipboard_text or text != editor_text:
                 self._last_clipboard_text = text
                 self.editor.setPlainText(text)
                 self._update_code_stats()
+        elif is_empty:
+            editor_text = self.editor.toPlainText()
+            if force or not editor_text or editor_text.startswith("Windows clipboard buffer is empty."):
+                self._last_clipboard_text = ""
+                self.lbl_code_meta.setText("Clipboard empty")
+                self.lbl_code_meta.setStyleSheet("color: #E09848; background: transparent;")
+
+    def _poll_clipboard(self):
+        """Periodic fallback check for clipboard updates."""
+        self._sync_clipboard(force=False)
 
     def _refresh_clipboard(self):
-        text, is_empty, err_msg = get_current_clipboard()
-        self._last_clipboard_text = text
-        if is_empty:
-            self.lbl_code_meta.setText("Clipboard empty")
-            self.lbl_code_meta.setStyleSheet("color: #E09848; background: transparent;")
-        else:
-            self.editor.setPlainText(text)
-            self._update_code_stats()
+        """Manual refresh button handler."""
+        self._sync_clipboard(force=True)
+        if self.sound_enabled:
+            try:
+                winsound.MessageBeep(winsound.MB_OK)
+            except Exception:
+                pass
 
     def _load_sample(self):
         self.editor.setPlainText(SAMPLE_CODE)
         self._last_clipboard_text = SAMPLE_CODE
         set_test_clipboard_text(SAMPLE_CODE)
+        self._last_clip_seq = get_clipboard_sequence_number()
         self._update_code_stats()
         if self.sound_enabled:
             try:
@@ -1302,8 +1355,9 @@ class MainWindow(QMainWindow):
         try:
             info = get_foreground_window_info()
             proc = info.get("process_name", "")
-            if proc and self.engine.state == EngineState.IDLE:
-                self.btn_target.setText(f"● Target: {proc[:16]}")
+            if proc and self.engine.state in (EngineState.IDLE, EngineState.COMPLETED, EngineState.STOPPED):
+                if not any(p in proc.lower() for p in ("typo", "python")):
+                    self.btn_target.setText(f"● Target: {proc[:16]}")
         except Exception:
             pass
 
@@ -1330,6 +1384,10 @@ class MainWindow(QMainWindow):
         try:
             if self.engine.state in (EngineState.COUNTDOWN, EngineState.TYPING):
                 return
+
+            # Always sync with latest clipboard before starting
+            self._sync_clipboard(force=False)
+
             text = self.editor.toPlainText()
             if not text or text.startswith("Windows clipboard buffer is empty."):
                 text, is_empty, err_msg = get_current_clipboard()
@@ -1349,8 +1407,14 @@ class MainWindow(QMainWindow):
             print(f"[TYPO Trigger Error] {e}")
             self.btn_target.setText(f"❌ Error: {str(e)[:14]}")
 
+    def _reset_to_idle(self):
+        if self.engine.state in (EngineState.STOPPED, EngineState.COMPLETED):
+            self.engine.state = EngineState.IDLE
+            self.btn_target.setText("● Target: Standby")
+
     def _trigger_abort(self):
         self.engine.stop()
+        self.engine.state = EngineState.IDLE
         self.btn_target.setText("● Target: Standby")
         if self.sound_enabled:
             try:
@@ -1379,10 +1443,10 @@ class MainWindow(QMainWindow):
             self.btn_target.setText("⏸ Paused")
         elif state == EngineState.STOPPED:
             self.btn_target.setText("🛑 Stopped")
-            QTimer.singleShot(1500, lambda: self.btn_target.setText("● Target: Standby") if self.engine.state in (EngineState.STOPPED, EngineState.IDLE) else None)
+            QTimer.singleShot(1500, self._reset_to_idle)
         elif state == EngineState.COMPLETED:
             self.btn_target.setText("✔ Done (100%)")
-            QTimer.singleShot(2500, lambda: self.btn_target.setText("● Target: Standby") if self.engine.state in (EngineState.COMPLETED, EngineState.IDLE) else None)
+            QTimer.singleShot(2500, self._reset_to_idle)
 
         if self.ghost_hud and hasattr(self.ghost_hud, "update_state"):
             try:
