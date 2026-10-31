@@ -9,6 +9,7 @@ import ctypes
 from ctypes import wintypes
 from typo.win32_api import (
     read_clipboard_unicode,
+    get_clipboard_sequence_number,
     user32,
     kernel32,
     CF_UNICODETEXT,
@@ -39,7 +40,19 @@ def get_current_clipboard() -> tuple[str, bool, str]:
     """
     Returns (raw_text, is_empty, error_message)
     Never alters or clears the user's clipboard.
+    Uses Qt QClipboard if available for instantaneous retrieval without
+    Windows clipboard handle locking contention, with fallback to Win32 API.
     """
+    try:
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            cb = app.clipboard()
+            text = cb.text()
+            if text:
+                return (text, False, "")
+    except Exception:
+        pass
     return read_clipboard_unicode()
 
 
