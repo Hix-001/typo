@@ -315,7 +315,7 @@ class MainWindow(QMainWindow):
         self.ghost_hud = None
         self._last_clipboard_text = ""
         self._last_clip_seq = get_clipboard_sequence_number()
-        self.active_tab_name = "Primary Studio"
+        self.active_tab_name = "Studio"
 
         # Apply Global DWM Dark Mode on Windows
         self._setup_dwm()
@@ -596,8 +596,8 @@ class MainWindow(QMainWindow):
 
         left = QVBoxLayout()
         left.setSpacing(3)
-        left.addWidget(make_label("VISION OS // AUTOMATION STUDIO", 9, "#E09848", bold=True))
-        self.lbl_deck_title = make_label("Control Deck · Dynamic Glass Sequencer", 16, "#FFFFFF", bold=True)
+        left.addWidget(make_label("TYPO ⚡", 9, "#E09848", bold=True))
+        self.lbl_deck_title = make_label("Control Deck · Studio Sequencer", 16, "#FFFFFF", bold=True)
         left.addWidget(self.lbl_deck_title)
         row.addLayout(left, 1)
 
@@ -619,10 +619,6 @@ class MainWindow(QMainWindow):
             }
         """)
         row.addWidget(self.btn_target)
-
-        self.btn_sound = make_pill_button("🔊 Audio On")
-        self.btn_sound.clicked.connect(self._toggle_sound)
-        row.addWidget(self.btn_sound)
 
         self.btn_ghost_hud = make_pill_button("👻 Ghost HUD")
         self.btn_ghost_hud.clicked.connect(self._toggle_ghost_hud)
@@ -662,12 +658,12 @@ class MainWindow(QMainWindow):
         add_btn.clicked.connect(self._load_sample)
         row.addWidget(add_btn)
 
-        # Tabs
+        # Tabs (Studio and Speed)
         self.tab_buttons = {}
-        tabs = ["Primary Studio", "Biometrics", "Code Buffer", "Telemetry Log", "Anti-Gaze"]
+        tabs = ["Studio", "Speed"]
 
         for tname in tabs:
-            is_active = (tname == "Primary Studio")
+            is_active = (tname == "Studio")
             disp_text = f"● {tname}" if is_active else tname
             btn = QPushButton(disp_text)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -702,24 +698,6 @@ class MainWindow(QMainWindow):
             row.addWidget(btn)
 
         row.addStretch(1)
-
-        # Rightmost Reference Pill: Liquid Glass
-        liquid_pill = QPushButton("💧 Liquid Glass")
-        liquid_pill.setFont(get_app_font(9, QFont.Weight.DemiBold))
-        liquid_pill.setFixedHeight(30)
-        liquid_pill.setStyleSheet("""
-            QPushButton {
-                color: #FDF8F3;
-                background: rgba(40, 24, 15, 150);
-                border: 1px solid rgba(255, 195, 130, 60);
-                border-radius: 15px;
-                padding: 0 14px;
-            }
-            QPushButton:hover {
-                background: rgba(60, 36, 22, 190);
-            }
-        """)
-        row.addWidget(liquid_pill)
         return capsule_bar
 
     # ==========================================
@@ -1126,22 +1104,18 @@ class MainWindow(QMainWindow):
                     }
                 """)
 
-        if tab_name == "Biometrics":
+        if tab_name in ("Speed", "Biometrics"):
             self.stack.setCurrentWidget(self.biometrics_deck)
-            self.lbl_deck_title.setText("Biometrics Lab · Cadence & Inhuman Mode")
+            self.lbl_deck_title.setText("Speed Deck · Cadence & Inhuman Mode")
         else:
             self.stack.setCurrentWidget(self.primary_studio_deck)
-            self.lbl_deck_title.setText(f"Control Deck · {tab_name}")
+            self.lbl_deck_title.setText("Control Deck · Studio Sequencer")
 
     def _on_sidebar_nav_clicked(self, name: str):
-        if name in ("Control Deck", "Sequencer Deck"):
-            self._select_tab("Primary Studio")
-        elif name == "Biometrics Lab":
-            self._select_tab("Biometrics")
-        elif name == "Code Memory":
-            self._select_tab("Code Buffer")
-        elif name == "Session Telemetry":
-            self._select_tab("Telemetry Log")
+        if name in ("Biometrics Lab", "Speed"):
+            self._select_tab("Speed")
+        else:
+            self._select_tab("Studio")
 
     # ==========================================
     # Event Handlers & Sliders
@@ -1236,7 +1210,8 @@ class MainWindow(QMainWindow):
 
     def _toggle_sound(self):
         self.sound_enabled = not self.sound_enabled
-        self.btn_sound.setText("◖)) Audio On" if self.sound_enabled else "◖× Audio Off")
+        if hasattr(self, "btn_sound") and self.btn_sound is not None:
+            self.btn_sound.setText("◖)) Audio On" if self.sound_enabled else "◖× Audio Off")
         if self.sound_enabled:
             try:
                 winsound.MessageBeep(winsound.MB_OK)
