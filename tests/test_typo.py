@@ -290,6 +290,42 @@ class TestBiometricsAndGhostHUD(unittest.TestCase):
         self.assertEqual(len(pos), 2)
 
 
+class TestUIRefactor(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import os
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        from PySide6.QtWidgets import QApplication
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_capsule_bar_and_branding(self):
+        from PySide6.QtWidgets import QPushButton, QLabel
+        from typo.ui import MainWindow
+
+        win = MainWindow()
+        labels = [w.text() for w in win.findChildren(QLabel)]
+        self.assertIn("TYPO ⚡", labels)
+        self.assertFalse(any("VISION OS // AUTOMATION STUDIO" in t for t in labels))
+
+        # Check sound button removed
+        self.assertFalse(hasattr(win, "btn_sound"))
+
+        # Check capsule tabs
+        tab_names = list(win.tab_buttons.keys())
+        self.assertEqual(tab_names, ["Studio", "Speed"])
+
+        # Check removed pills
+        buttons = [w.text() for w in win.findChildren(QPushButton)]
+        self.assertFalse(any("Liquid Glass" in b for b in buttons))
+
+        # Check tab navigation
+        win._select_tab("Speed")
+        self.assertEqual(win.stack.currentWidget(), win.biometrics_deck)
+        self.assertEqual(win.lbl_deck_title.text(), "Speed Deck · Cadence & Inhuman Mode")
+
+        win._select_tab("Studio")
+        self.assertEqual(win.stack.currentWidget(), win.primary_studio_deck)
+        self.assertEqual(win.lbl_deck_title.text(), "Control Deck · Studio Sequencer")
 
 
 if __name__ == "__main__":
