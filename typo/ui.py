@@ -62,12 +62,95 @@ COLOR_TEXT_MUTED = "#595A5A"   # 0.3% secondary labels, metadata
 COLOR_DETAIL = "#3C3C3C"       # 0.2% detail elements, dark code editor
 COLOR_WARNING = "#FFC700"      # 0.1% signature accent (never large panels)
 
-# Typography Hierarchy
-FONT_BODY_FAMILIES = ["Inter Tight", "Helvetica Neue", "Arial", "Segoe UI", "sans-serif"]
-FONT_CODE_FAMILIES = ["JetBrains Mono", "LatteraMonoLL", "Consolas", "Courier New", "monospace"]
-FONT_DISPLAY_FAMILIES = ["Figtree", "NType82-Regular", "Arial", "sans-serif"]
+# =========================================================================
+# Apple Design System Typography (Measured from apple/DESIGN.md)
+# =========================================================================
+# Display: SF Pro Display (sizes >= 19px)
+# Body / UI: SF Pro Text (sizes < 20px)
+# Monospace: SF Mono / JetBrains Mono (code editors & buffers)
+FONT_DISPLAY_FAMILIES = [
+    "SF Pro Display",
+    "SF Pro",
+    "Inter",
+    "system-ui",
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "sans-serif",
+]
+FONT_BODY_FAMILIES = [
+    "SF Pro Text",
+    "SF Pro",
+    "Inter",
+    "system-ui",
+    "-apple-system",
+    "BlinkMacSystemFont",
+    "sans-serif",
+]
+FONT_CODE_FAMILIES = [
+    "SF Mono",
+    "JetBrains Mono",
+    "Consolas",
+    "Courier New",
+    "monospace",
+]
 FONT_FAMILIES = FONT_BODY_FAMILIES
 MONO_FAMILIES = FONT_CODE_FAMILIES
+
+# Apple Typography Hierarchy Tokens from apple/DESIGN.md
+APPLE_TYPOGRAPHY_TOKENS = {
+    "hero-display": {"size": 56, "weight": QFont.Weight.DemiBold, "letter_spacing": -0.28, "display": True},
+    "display-lg": {"size": 40, "weight": QFont.Weight.DemiBold, "letter_spacing": 0.0, "display": True},
+    "display-md": {"size": 34, "weight": QFont.Weight.DemiBold, "letter_spacing": -0.374, "display": True},
+    "lead": {"size": 28, "weight": QFont.Weight.Normal, "letter_spacing": 0.196, "display": True},
+    "lead-airy": {"size": 24, "weight": QFont.Weight.Light, "letter_spacing": 0.0, "display": True},
+    "tagline": {"size": 21, "weight": QFont.Weight.DemiBold, "letter_spacing": 0.231, "display": True},
+    "body-strong": {"size": 17, "weight": QFont.Weight.DemiBold, "letter_spacing": -0.374, "display": False},
+    "body": {"size": 17, "weight": QFont.Weight.Normal, "letter_spacing": -0.374, "display": False},
+    "dense-link": {"size": 17, "weight": QFont.Weight.Normal, "letter_spacing": 0.0, "display": False},
+    "caption": {"size": 14, "weight": QFont.Weight.Normal, "letter_spacing": -0.224, "display": False},
+    "caption-strong": {"size": 14, "weight": QFont.Weight.DemiBold, "letter_spacing": -0.224, "display": False},
+    "button-large": {"size": 18, "weight": QFont.Weight.Light, "letter_spacing": 0.0, "display": False},
+    "button-utility": {"size": 14, "weight": QFont.Weight.Normal, "letter_spacing": -0.224, "display": False},
+    "fine-print": {"size": 12, "weight": QFont.Weight.Normal, "letter_spacing": -0.12, "display": False},
+    "micro-legal": {"size": 10, "weight": QFont.Weight.Normal, "letter_spacing": -0.08, "display": False},
+    "nav-link": {"size": 12, "weight": QFont.Weight.Normal, "letter_spacing": -0.12, "display": False},
+}
+
+
+def register_application_fonts():
+    """Scans and registers bundled Apple typography files into QFontDatabase."""
+    font_dirs_to_scan = [USER_FONTS_DIR, FONTS_DIR]
+    for fdir in font_dirs_to_scan:
+        if os.path.exists(fdir):
+            for fname in os.listdir(fdir):
+                if fname.lower().endswith((".ttf", ".otf")):
+                    full_fpath = os.path.join(fdir, fname)
+                    QFontDatabase.addApplicationFont(full_fpath)
+
+
+def get_apple_tracking(size: int) -> float:
+    """Apple typography tracking ladder from apple/DESIGN.md."""
+    if size >= 50:
+        return -0.28
+    elif size >= 38:
+        return 0.0
+    elif size >= 30:
+        return -0.374
+    elif size >= 26:
+        return 0.196
+    elif size >= 23:
+        return 0.0
+    elif size >= 20:
+        return 0.231
+    elif size >= 16:
+        return -0.374
+    elif size >= 13:
+        return -0.224
+    elif size >= 11:
+        return -0.12
+    elif size >= 9:
+        return -0.08
+    return 0.0
 
 
 class EngineBridge(QObject):
@@ -83,19 +166,47 @@ class EngineBridge(QObject):
     sig_error = Signal(str)
 
 
-def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mono: bool = False, display: bool = False) -> QFont:
-    """Returns a QFont configured with Nothing design typography specifications."""
+def get_app_font(
+    size: int = 14,
+    weight: QFont.Weight = QFont.Weight.Normal,
+    mono: bool = False,
+    display: bool = False,
+    token: str = None
+) -> QFont:
+    """
+    Returns a QFont configured according to Apple Design System (DESIGN.md):
+    - Display: SF Pro Display (sizes >= 19px or display=True)
+    - Body / UI: SF Pro Text (sizes < 20px)
+    - Monospace: SF Mono / JetBrains Mono (code editors & buffers)
+    - Weight ladder: 300 (Light), 400 (Normal), 600 (DemiBold), 700 (Bold)
+    - Letter spacing: Apple tight headline tracking (-0.08px to -0.374px)
+    """
+    if token and token in APPLE_TYPOGRAPHY_TOKENS:
+        t_data = APPLE_TYPOGRAPHY_TOKENS[token]
+        size = t_data["size"]
+        weight = t_data["weight"]
+        display = t_data["display"]
+        spacing = t_data["letter_spacing"]
+    else:
+        spacing = get_apple_tracking(size)
+
+    # Apple weight normalization: convert Bold (700) to DemiBold (600) for standard emphasis
+    if weight == QFont.Weight.Bold:
+        weight = QFont.Weight.DemiBold
+
     if mono:
-        f = QFont("JetBrains Mono", size, weight)
+        f = QFont("SF Mono", size, weight)
         f.setFamilies(FONT_CODE_FAMILIES)
-    elif display:
-        # Nothing design rule: Headings 24px or larger never heavier than 400
-        w = QFont.Weight.Normal if size >= 24 else weight
-        f = QFont("Figtree", size, w)
+    elif display or size >= 19:
+        f = QFont("SF Pro Display", size, weight)
         f.setFamilies(FONT_DISPLAY_FAMILIES)
     else:
-        f = QFont("Inter Tight", size, weight)
+        f = QFont("SF Pro Text", size, weight)
         f.setFamilies(FONT_BODY_FAMILIES)
+
+    if spacing != 0.0:
+        f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing)
+
     return f
 
 SAMPLE_CODE = """#include <vector>
@@ -224,18 +335,18 @@ class NothingCard(QFrame):
 GlassCard = NothingCard
 
 
-def make_label(text, size=10, color=COLOR_TEXT, bold=False, mono=False, display=False):
+def make_label(text, size=14, color=COLOR_TEXT, bold=False, mono=False, display=False, token=None):
     lbl = QLabel(text)
-    weight = QFont.Weight.Bold if bold else QFont.Weight.Normal
-    lbl.setFont(get_app_font(size, weight, mono=mono, display=display))
+    weight = QFont.Weight.DemiBold if bold else QFont.Weight.Normal
+    lbl.setFont(get_app_font(size, weight, mono=mono, display=display, token=token))
     lbl.setStyleSheet(f"color: {color}; background: transparent; border: none; padding: 0;")
     return lbl
 
 
-def make_pill_button(text, active=False, danger=False, primary=False):
+def make_pill_button(text, active=False, danger=False, primary=False, token="button-utility"):
     btn = QPushButton(text)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    btn.setFont(get_app_font(9, QFont.Weight.Normal))
+    btn.setFont(get_app_font(14, QFont.Weight.Normal, token=token))
     btn.setMinimumHeight(30)
 
     if danger:
@@ -310,14 +421,8 @@ class MainWindow(QMainWindow):
         self._setup_dwm()
 
         # Register Apple SF Pro, SF Compact, New York, and Inter typefaces
-        font_dirs_to_scan = [USER_FONTS_DIR, FONTS_DIR]
-        for fdir in font_dirs_to_scan:
-            if os.path.exists(fdir):
-                for fname in os.listdir(fdir):
-                    if fname.lower().endswith((".ttf", ".otf")):
-                        full_fpath = os.path.join(fdir, fname)
-                        QFontDatabase.addApplicationFont(full_fpath)
-        QApplication.setFont(get_app_font(10))
+        register_application_fonts()
+        QApplication.setFont(get_app_font(14, token="body"))
 
         # Build Ambient Wallpaper Root
         self.root = AmbientBackground(self)
