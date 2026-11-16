@@ -341,6 +341,29 @@ class TestUIRefactor(unittest.TestCase):
         src = inspect.getsource(ui)
         self.assertNotIn("gradient(", src.lower())
 
+    def test_apple_typography_tokens(self):
+        from typo import ui
+        from PySide6.QtGui import QFont
+        # Verify Apple typography families from apple/DESIGN.md
+        self.assertIn("SF Pro Display", ui.FONT_DISPLAY_FAMILIES)
+        self.assertIn("SF Pro Text", ui.FONT_BODY_FAMILIES)
+        self.assertIn("SF Mono", ui.FONT_CODE_FAMILIES)
+
+        # Verify get_app_font creates Apple display font with tight tracking
+        f_display = ui.get_app_font(34, QFont.Weight.DemiBold, display=True)
+        self.assertEqual(f_display.pointSize(), 34)
+        self.assertAlmostEqual(f_display.letterSpacing(), -0.374, delta=0.03)
+
+        # Verify body font token
+        f_body = ui.get_app_font(token="body")
+        self.assertEqual(f_body.pointSize(), 17)
+        self.assertAlmostEqual(f_body.letterSpacing(), -0.374, delta=0.03)
+
+        # Verify mono font
+        f_mono = ui.get_app_font(12, mono=True)
+        self.assertEqual(f_mono.pointSize(), 12)
+        self.assertIn("SF Mono", f_mono.families() or [f_mono.family()])
+
 
 if __name__ == "__main__":
     unittest.main()
