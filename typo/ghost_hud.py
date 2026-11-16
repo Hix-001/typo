@@ -32,24 +32,24 @@ from typo.win32_api import (
 )
 from typo.typing_engine import EngineState
 
-# Apple Liquid Glass HUD Design Tokens
-HUD_BG = "#0B0E15"                 # Frosted dark obsidian liquid glass
-HUD_BORDER = "#2A3144"             # Specular glass rim border
-HUD_BORDER_GLOW = "#3E4862"        # Luminous rim highlight
-HUD_TEXT_WHITE = "#FFFFFF"         # Crisp Apple white
-HUD_TEXT_MUTED = "#98989F"         # Apple secondary grey
-HUD_TRACK = "#181B26"              # Capsule slider track
+# Nothing Design System Tokens (Ghost HUD)
+HUD_BG = "#040404"                 # High-contrast stark black surface
+HUD_BORDER = "#D8D9D9"             # 1px solid neutral border
+HUD_BORDER_GLOW = "#D8D9D9"        # Clean border highlight
+HUD_TEXT_WHITE = "#FFFFFF"         # Crisp white
+HUD_TEXT_MUTED = "#595A5A"         # Nothing secondary grey
+HUD_TRACK = "#3C3C3C"              # Recessed track
 
-# Apple State Accents
-COLOR_IDLE = "#181B26"
-COLOR_COUNTDOWN = "#FF9F0A"
-COLOR_TYPING = "#30D158"           # Apple electric green
-COLOR_PAUSED = "#FF9F0A"
-COLOR_STOPPED = "#FF453A"
-COLOR_COMPLETED = "#30D158"
+# State Accents (Strict Nothing tokens)
+COLOR_IDLE = "#3C3C3C"
+COLOR_COUNTDOWN = "#FFC700"        # Nothing accent yellow
+COLOR_TYPING = "#FFFFFF"           # Stark white action
+COLOR_PAUSED = "#FFC700"
+COLOR_STOPPED = "#595A5A"
+COLOR_COMPLETED = "#FFC700"
 
-FONT_FAMILY = "Segoe UI"
-FONT_MONO = "Consolas"
+FONT_FAMILY = "Figtree"
+FONT_MONO = "JetBrains Mono"
 
 
 class GhostHUD(ctk.CTkToplevel):
@@ -84,13 +84,13 @@ class GhostHUD(ctk.CTkToplevel):
         self.after(100, self._snap_to_top_right)
 
     def _build_ui(self):
-        # Outer Border Frame (Apple Vision Squircle Card)
+        # Outer Border Frame (Nothing Card Geometry)
         self.outer_frame = ctk.CTkFrame(
             self,
             fg_color=HUD_BG,
             border_color=HUD_BORDER,
             border_width=1,
-            corner_radius=20
+            corner_radius=8
         )
         self.outer_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
@@ -104,21 +104,21 @@ class GhostHUD(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             title_box,
-            text="",
-            font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
-            text_color=HUD_TEXT_WHITE
+            text="●",
+            font=ctk.CTkFont(family=FONT_FAMILY, size=10, weight="bold"),
+            text_color=COLOR_COUNTDOWN
         ).pack(side="left", padx=(0, 4))
 
         self.lbl_grip = ctk.CTkLabel(
             title_box,
-            text="Glass HUD",
+            text="Ghost HUD",
             font=ctk.CTkFont(family=FONT_FAMILY, size=12, weight="bold"),
             text_color=HUD_TEXT_WHITE,
             cursor="fleur"
         )
         self.lbl_grip.pack(side="left")
 
-        # State Indicator Pill (Liquid Glass Pill)
+        # State Indicator Pill (Nothing Pill)
         self.lbl_state_pill = ctk.CTkLabel(
             top_row,
             text="● IDLE",
@@ -127,7 +127,7 @@ class GhostHUD(ctk.CTkToplevel):
             fg_color=COLOR_IDLE,
             border_color=HUD_BORDER,
             border_width=1,
-            corner_radius=10,
+            corner_radius=4,
             padx=10,
             pady=2
         )
