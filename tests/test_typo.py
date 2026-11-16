@@ -327,19 +327,17 @@ class TestUIRefactor(unittest.TestCase):
         self.assertEqual(win.stack.currentWidget(), win.primary_studio_deck)
         self.assertEqual(win.lbl_deck_title.text(), "Control Deck · Studio Sequencer")
 
-    def test_nothing_design_tokens(self):
-        import inspect
+    def test_frosted_glass_design_tokens(self):
         from typo import ui
-        # Ensure Nothing tokens are present and used
-        self.assertEqual(ui.COLOR_BACKGROUND, "#F4F4F4")
-        self.assertEqual(ui.COLOR_TEXT, "#040404")
-        self.assertEqual(ui.COLOR_BORDER, "#D8D9D9")
-        self.assertEqual(ui.COLOR_SURFACE, "#FFFFFF")
-        self.assertEqual(ui.COLOR_WARNING, "#FFC700")
-
-        # Ensure no gradients in ui.py source
-        src = inspect.getsource(ui)
-        self.assertNotIn("gradient(", src.lower())
+        # Ensure Frosted Black Glass tokens are present and used
+        self.assertEqual(ui.COLOR_BACKGROUND, "#090B10")
+        self.assertEqual(ui.COLOR_TEXT_PRIMARY, "#FFFFFF")
+        self.assertEqual(ui.COLOR_TEXT, "#FFFFFF")
+        self.assertEqual(ui.COLOR_BORDER, "rgba(255, 255, 255, 0.11)")
+        self.assertEqual(ui.COLOR_SURFACE, "rgba(18, 22, 32, 0.70)")
+        self.assertEqual(ui.COLOR_WARNING, "#F59E0B")
+        self.assertEqual(ui.COLOR_ACCENT_AMBER, "#F59E0B")
+        self.assertEqual(ui.COLOR_ACCENT_CYAN, "#38BDF8")
 
 
 if __name__ == "__main__":
