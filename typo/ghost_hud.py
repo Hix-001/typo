@@ -48,8 +48,10 @@ COLOR_PAUSED = "#FFC700"
 COLOR_STOPPED = "#595A5A"
 COLOR_COMPLETED = "#FFC700"
 
-FONT_FAMILY = "Figtree"
-FONT_MONO = "JetBrains Mono"
+# Apple Design System Typography (apple/DESIGN.md)
+FONT_FAMILY = "SF Pro Text"
+FONT_DISPLAY = "SF Pro Display"
+FONT_MONO = "SF Mono"
 
 
 class GhostHUD(ctk.CTkToplevel):
