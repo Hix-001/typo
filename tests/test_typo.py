@@ -327,6 +327,20 @@ class TestUIRefactor(unittest.TestCase):
         self.assertEqual(win.stack.currentWidget(), win.primary_studio_deck)
         self.assertEqual(win.lbl_deck_title.text(), "Control Deck · Studio Sequencer")
 
+    def test_nothing_design_tokens(self):
+        import inspect
+        from typo import ui
+        # Ensure Nothing tokens are present and used
+        self.assertEqual(ui.COLOR_BACKGROUND, "#F4F4F4")
+        self.assertEqual(ui.COLOR_TEXT, "#040404")
+        self.assertEqual(ui.COLOR_BORDER, "#D8D9D9")
+        self.assertEqual(ui.COLOR_SURFACE, "#FFFFFF")
+        self.assertEqual(ui.COLOR_WARNING, "#FFC700")
+
+        # Ensure no gradients in ui.py source
+        src = inspect.getsource(ui)
+        self.assertNotIn("gradient(", src.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
