@@ -1,15 +1,15 @@
 """
-TYPO® — Studio Frosted Edition (PySide6 Native Frosted Glass)
-High-fidelity desktop interface matching the Studio Glass design specification.
+TYPO® — Nothing Design System Edition (Industrial Precision Automation)
+High-fidelity desktop interface built strictly to Nothing design language tokens (measured from nothing.tech).
 
-Features:
-- Translucent warm amber/bronze frosted glass panels with specular hairlines
-- Seamless atmospheric ambient illumination & wallpaper blending (no desktop bleed-through)
-- Native visionOS capsule navigation, dual side-by-side faders, and 2x2 stealth matrix
-- Recessed dark monospace code buffer with live clipboard analytics
-- Apple visionOS animated iOS switch toggles
-- Biometrics Lab view with Inhuman Mode (360 WPM)
-- Global hotkey, emergency abort, and full TypingEngine automation integration
+Specifications:
+- Neutral dominant ground (#F4F4F4 70.4%, #040404 14.8%, #D8D9D9 9.5%, #FFFFFF 4.5%, #595A5A 0.3%, #3C3C3C 0.2%)
+- Signature Nothing yellow accent (#FFC700 0.1%) strictly for active badges and indicators
+- Zero gradients, zero glassmorphism, zero drop-shadow noise
+- Strict geometry and radii: 4px, 6px, 8px, and pill
+- Typography stack: Inter Tight (body), JetBrains Mono (code), Figtree (display)
+- Industrial high-contrast mechanical toggle switches and flat sliders
+- Full TypingEngine automation integration with thread-safe Qt Signal Bridge
 """
 
 import os
@@ -21,7 +21,7 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer, QObject, QEvent
 from PySide6.QtGui import (
-    QColor, QFont, QFontDatabase, QLinearGradient, QRadialGradient, QPainter, QPen,
+    QColor, QFont, QFontDatabase, QPainter, QPen,
     QBrush, QIcon, QPixmap, QPainterPath
 )
 from PySide6.QtWidgets import (
@@ -39,7 +39,7 @@ from typo.clipboard import (
     get_clipboard_sequence_number
 )
 
-APP_NAME = "TYPO — Studio Glass Edition"
+APP_NAME = "TYPO — Precision Studio"
 if getattr(sys, "frozen", False):
     ROOT_DIR = sys._MEIPASS
     ASSETS_DIR = os.path.join(ROOT_DIR, "typo", "assets")
@@ -49,19 +49,31 @@ else:
     ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
     USER_FONTS_DIR = os.path.join(ROOT_DIR, "fonts")
 
-WALLPAPER_PATH = os.path.join(ASSETS_DIR, "glass_bg_amber.png")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 
-# Typography Hierarchy (Native Apple San Francisco Pro, SF Compact, New York, System Fallbacks)
-FONT_FAMILIES = ["SF Pro", "SF Compact", "Segoe UI", "Inter", "-apple-system", "sans-serif"]
-MONO_FAMILIES = ["Consolas", "Courier New", "monospace"]
+# =========================================================================
+# Nothing Design Tokens (Measured from nothing.tech — DESIGN.md)
+# =========================================================================
+COLOR_BACKGROUND = "#F4F4F4"   # 70.4% dominant ground
+COLOR_TEXT = "#040404"         # 14.8% action, high-contrast text & dark fills
+COLOR_BORDER = "#D8D9D9"       # 9.5% subtle outlines, lines, slider tracks
+COLOR_SURFACE = "#FFFFFF"      # 4.5% cards, input surfaces, active pills
+COLOR_TEXT_MUTED = "#595A5A"   # 0.3% secondary labels, metadata
+COLOR_DETAIL = "#3C3C3C"       # 0.2% detail elements, dark code editor
+COLOR_WARNING = "#FFC700"      # 0.1% signature accent (never large panels)
+
+# Typography Hierarchy
+FONT_BODY_FAMILIES = ["Inter Tight", "Helvetica Neue", "Arial", "Segoe UI", "sans-serif"]
+FONT_CODE_FAMILIES = ["JetBrains Mono", "LatteraMonoLL", "Consolas", "Courier New", "monospace"]
+FONT_DISPLAY_FAMILIES = ["Figtree", "NType82-Regular", "Arial", "sans-serif"]
+FONT_FAMILIES = FONT_BODY_FAMILIES
+MONO_FAMILIES = FONT_CODE_FAMILIES
 
 
 class EngineBridge(QObject):
     """
     Thread-safe Qt Signal Bridge.
-    Marshals background thread callbacks (pynput hook thread & TypoWorkerThread)
-    cleanly into the Qt main GUI event loop via QueuedConnection.
+    Marshals background thread callbacks cleanly into the Qt main GUI event loop via QueuedConnection.
     """
     sig_hotkey = Signal()
     sig_abort = Signal()
@@ -71,15 +83,19 @@ class EngineBridge(QObject):
     sig_error = Signal(str)
 
 
-def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mono: bool = False) -> QFont:
-    """Returns a QFont configured with the project font stack."""
+def get_app_font(size: int = 10, weight: QFont.Weight = QFont.Weight.Normal, mono: bool = False, display: bool = False) -> QFont:
+    """Returns a QFont configured with Nothing design typography specifications."""
     if mono:
-        f = QFont("Consolas", size, weight)
-        f.setFamilies(MONO_FAMILIES)
+        f = QFont("JetBrains Mono", size, weight)
+        f.setFamilies(FONT_CODE_FAMILIES)
+    elif display:
+        # Nothing design rule: Headings 24px or larger never heavier than 400
+        w = QFont.Weight.Normal if size >= 24 else weight
+        f = QFont("Figtree", size, w)
+        f.setFamilies(FONT_DISPLAY_FAMILIES)
     else:
-        f = QFont("SF Pro", size)
-        f.setWeight(weight)
-        f.setFamilies(FONT_FAMILIES)
+        f = QFont("Inter Tight", size, weight)
+        f.setFamilies(FONT_BODY_FAMILIES)
     return f
 
 SAMPLE_CODE = """#include <vector>
@@ -108,15 +124,15 @@ public:
 
 
 # ==========================================
-# Apple iOS / visionOS Animated Switch
+# Nothing Mechanical Precision Switch
 # ==========================================
-class IOSSwitch(QWidget):
+class NothingSwitch(QWidget):
     toggled = Signal(bool)
 
     def __init__(self, parent=None, checked=True):
         super().__init__(parent)
         self._checked = checked
-        self.setFixedSize(38, 22)
+        self.setFixedSize(36, 20)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def isChecked(self) -> bool:
@@ -138,94 +154,80 @@ class IOSSwitch(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Track background - matching iOS switch dimensions in reference
-        track_rect = QRectF(1, 1, 36, 20)
+        track_rect = QRectF(1, 1, 34, 18)
         track_path = QPainterPath()
-        track_path.addRoundedRect(track_rect, 10, 10)
+        track_path.addRoundedRect(track_rect, 9, 9)
 
         if self._checked:
-            track_color = QColor("#34C759")       # Authentic Apple Green
-            border_color = QColor(100, 225, 140, 140)
-            thumb_x = 18.5
+            track_color = QColor(COLOR_TEXT)       # #040404 stark dark track
+            border_color = QColor(COLOR_TEXT)
+            thumb_color = QColor(COLOR_SURFACE)     # #FFFFFF thumb
+            thumb_x = 17.0
         else:
-            track_color = QColor(58, 42, 32, 210) # Warm dark espresso track
-            border_color = QColor(90, 70, 55, 120)
-            thumb_x = 2.5
+            track_color = QColor(COLOR_BORDER)     # #D8D9D9 neutral track
+            border_color = QColor(COLOR_BORDER)
+            thumb_color = QColor(COLOR_TEXT_MUTED)  # #595A5A thumb
+            thumb_x = 2.0
 
         p.fillPath(track_path, QBrush(track_color))
         p.setPen(QPen(border_color, 1))
         p.drawPath(track_path)
 
-        # Crisp Circular Thumb
-        thumb_rect = QRectF(thumb_x, 2.5, 17.0, 17.0)
-        p.setBrush(QBrush(QColor("#FFFFFF")))
-        p.setPen(QPen(QColor(0, 0, 0, 40), 0.5))
+        # Clean circular thumb
+        thumb_rect = QRectF(thumb_x, 2.5, 15.0, 15.0)
+        p.setBrush(QBrush(thumb_color))
+        p.setPen(Qt.PenStyle.NoPen)
         p.drawEllipse(thumb_rect)
+
+        # Active accent indicator dot (Nothing signature yellow dot)
+        if self._checked:
+            dot_rect = QRectF(thumb_x + 5.5, 8.0, 4.0, 4.0)
+            p.setBrush(QBrush(QColor(COLOR_WARNING)))
+            p.drawEllipse(dot_rect)
+
         p.end()
+
+IOSSwitch = NothingSwitch
 
 
 # ==========================================
-# Ambient Background with Wallpaper & Glow
+# Nothing Clean Ground Background
 # ==========================================
 class AmbientBackground(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
-        self._pixmap = None
-        if os.path.exists(WALLPAPER_PATH):
-            self._pixmap = QPixmap(WALLPAPER_PATH)
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        r = self.rect()
-
-        # Rich espresso foundation
-        base = QLinearGradient(0, 0, r.width(), r.height())
-        base.setColorAt(0.0, QColor("#140A06"))
-        base.setColorAt(0.5, QColor("#201007"))
-        base.setColorAt(1.0, QColor("#0D0604"))
-        p.fillRect(r, base)
-
-        # Wallpaper layer - direct pristine render of the radiant amber background
-        if self._pixmap and not self._pixmap.isNull():
-            scaled = self._pixmap.scaled(
-                r.size(),
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            x = (r.width() - scaled.width()) // 2
-            y = (r.height() - scaled.height()) // 2
-            p.drawPixmap(x, y, scaled)
-
+        p.fillRect(self.rect(), QColor(COLOR_BACKGROUND))
         p.end()
 
 
 # ==========================================
-# Frosted Studio Floating Card Panel
+# Nothing Surface Card Panel
 # ==========================================
-class GlassCard(QFrame):
+class NothingCard(QFrame):
     def __init__(self, parent=None, elevated=False):
         super().__init__(parent)
-        self.setObjectName("glassCard")
-        # Translucent warm bronze/dark obsidian glass matching the reference screenshot exactly:
-        # Subtle warm tint (alpha ~110-120) with thin specular amber hairlines
-        bg_col = "rgba(22, 13, 8, 120)" if elevated else "rgba(16, 10, 6, 110)"
-        border_col = "rgba(255, 205, 140, 75)" if elevated else "rgba(255, 190, 120, 55)"
+        self.setObjectName("nothingCard")
+        bg_col = COLOR_SURFACE
+        border_col = COLOR_BORDER
         self.setStyleSheet(f"""
-            QFrame#glassCard {{
+            QFrame#nothingCard {{
                 background: {bg_col};
                 border: 1px solid {border_col};
-                border-radius: 18px;
+                border-radius: 8px;
             }}
         """)
 
+GlassCard = NothingCard
 
-def make_label(text, size=10, color="#FDF8F3", bold=False, mono=False):
+
+def make_label(text, size=10, color=COLOR_TEXT, bold=False, mono=False, display=False):
     lbl = QLabel(text)
     weight = QFont.Weight.Bold if bold else QFont.Weight.Normal
-    lbl.setFont(get_app_font(size, weight, mono=mono))
+    lbl.setFont(get_app_font(size, weight, mono=mono, display=display))
     lbl.setStyleSheet(f"color: {color}; background: transparent; border: none; padding: 0;")
     return lbl
 
@@ -233,66 +235,53 @@ def make_label(text, size=10, color="#FDF8F3", bold=False, mono=False):
 def make_pill_button(text, active=False, danger=False, primary=False):
     btn = QPushButton(text)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    btn.setFont(get_app_font(9, QFont.Weight.DemiBold))
-    btn.setMinimumHeight(32)
+    btn.setFont(get_app_font(9, QFont.Weight.Normal))
+    btn.setMinimumHeight(30)
 
     if danger:
-        btn.setStyleSheet("""
-            QPushButton {
-                color: #FF6B6B;
-                background: rgba(180, 40, 35, 65);
-                border: 1px solid rgba(255, 107, 107, 140);
-                border-radius: 16px;
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {COLOR_TEXT};
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 6px;
                 padding: 0 14px;
-            }
-            QPushButton:hover {
-                background: rgba(220, 50, 45, 95);
-            }
+            }}
+            QPushButton:hover {{
+                background: {COLOR_BORDER};
+                border-color: {COLOR_TEXT};
+            }}
         """)
-    elif primary:
-        btn.setStyleSheet("""
-            QPushButton {
-                color: #241306;
-                background: #F59E0B;
-                border: 1px solid #FCD34D;
-                border-radius: 16px;
+    elif primary or active:
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {COLOR_SURFACE};
+                background: {COLOR_TEXT};
+                border: 1px solid {COLOR_TEXT};
+                border-radius: 6px;
                 padding: 0 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: #FBBF24;
-            }
-        """)
-    elif active:
-        btn.setStyleSheet("""
-            QPushButton {
-                color: #FFFFFF;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 160), stop:1 rgba(217, 119, 6, 120));
-                border: 1px solid rgba(255, 215, 150, 190);
-                border-radius: 16px;
-                padding: 0 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(251, 191, 36, 190), stop:1 rgba(245, 158, 11, 150));
-            }
+            }}
+            QPushButton:hover {{
+                background: {COLOR_DETAIL};
+                border-color: {COLOR_DETAIL};
+            }}
         """)
     else:
-        btn.setStyleSheet("""
-            QPushButton {
-                color: #FDF8F3;
-                background: rgba(30, 20, 14, 140);
-                border: 1px solid rgba(255, 195, 130, 60);
-                border-radius: 16px;
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {COLOR_TEXT};
+                background: {COLOR_SURFACE};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 6px;
                 padding: 0 14px;
-            }
-            QPushButton:hover {
-                background: rgba(45, 30, 20, 180);
-                border-color: rgba(255, 225, 165, 100);
-            }
-            QPushButton:pressed {
-                background: rgba(25, 16, 10, 190);
-            }
+            }}
+            QPushButton:hover {{
+                background: {COLOR_BACKGROUND};
+                border-color: {COLOR_TEXT};
+            }}
+            QPushButton:pressed {{
+                background: {COLOR_BORDER};
+            }}
         """)
     return btn
 
@@ -387,8 +376,8 @@ class MainWindow(QMainWindow):
             if sys.platform == "win32" and hwnd:
                 top_hwnd = ctypes.windll.user32.GetAncestor(hwnd, 2) or hwnd
                 dwmapi = ctypes.windll.dwmapi
-                dark_val = ctypes.c_int(1)
-                dwmapi.DwmSetWindowAttribute(top_hwnd, 20, ctypes.byref(dark_val), ctypes.sizeof(dark_val))
+                light_val = ctypes.c_int(0)
+                dwmapi.DwmSetWindowAttribute(top_hwnd, 20, ctypes.byref(light_val), ctypes.sizeof(light_val))
                 round_val = ctypes.c_int(2)
                 dwmapi.DwmSetWindowAttribute(top_hwnd, 33, ctypes.byref(round_val), ctypes.sizeof(round_val))
         except Exception:
@@ -398,41 +387,47 @@ class MainWindow(QMainWindow):
     # 1. Left Sidebar Bay
     # ==========================================
     def _build_sidebar(self):
-        panel = GlassCard()
+        panel = NothingCard()
         col = QVBoxLayout(panel)
         col.setContentsMargins(12, 12, 12, 12)
         col.setSpacing(6)
 
         # Top Profile Card
-        profile = GlassCard(elevated=True)
-        profile.setFixedHeight(54)
+        profile = QFrame()
+        profile.setFixedHeight(50)
+        profile.setStyleSheet(f"""
+            QFrame {{
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 6px;
+            }}
+        """)
         pr_lay = QHBoxLayout(profile)
-        pr_lay.setContentsMargins(10, 8, 10, 8)
+        pr_lay.setContentsMargins(8, 6, 8, 6)
         pr_lay.setSpacing(8)
 
         # Square 'T' Mark
         logo_box = QLabel("T")
-        logo_box.setFixedSize(36, 36)
+        logo_box.setFixedSize(32, 32)
         logo_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_box.setFont(get_app_font(15, QFont.Weight.Bold))
-        logo_box.setStyleSheet("""
-            background: #24140B;
-            color: #FFFFFF;
-            border: 1px solid rgba(255, 185, 115, 95);
-            border-radius: 10px;
+        logo_box.setFont(get_app_font(14, QFont.Weight.Normal, display=True))
+        logo_box.setStyleSheet(f"""
+            background: {COLOR_TEXT};
+            color: {COLOR_SURFACE};
+            border-radius: 4px;
         """)
         pr_lay.addWidget(logo_box)
 
         text_box = QVBoxLayout()
         text_box.setContentsMargins(0, 0, 0, 0)
         text_box.setSpacing(2)
-        text_box.addWidget(make_label("TYPO STUDIO", 9, "#F59E0B", bold=True))
-        text_box.addWidget(make_label("Vision Liquid Glass", 8, "#D4C0B0", bold=False))
+        text_box.addWidget(make_label("TYPO STUDIO", 9, COLOR_TEXT, bold=False, display=True))
+        text_box.addWidget(make_label("Precision Automation", 8, COLOR_TEXT_MUTED, bold=False))
         pr_lay.addLayout(text_box, 1)
 
-        # Green Beacon Dot
+        # Yellow Beacon Dot (0.1% signature Nothing accent)
         beacon = QLabel("●")
-        beacon.setStyleSheet("color: #34D399; font-size: 10px; background: transparent; border: none;")
+        beacon.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 8px; background: transparent; border: none;")
         pr_lay.addWidget(beacon)
         col.addWidget(profile)
         col.addSpacing(4)
@@ -440,55 +435,55 @@ class MainWindow(QMainWindow):
         # Navigation Groups
         self.nav_buttons = {}
         groups = [
-            ("CONTROL DECK", [("⌂", "Control Deck", True, False)]),
-            ("PRECISION INPUT ENGINE", [("💬", "Live Chat", False, False), ("🖼", "Images", False, False)]),
-            ("SEQUENCER", [("⊞", "Sequencer Deck", False, True), ("⚡", "Biometrics Lab", False, False)]),
-            ("TOOLS", [("🧠", "Code Memory", False, False), ("📊", "Session Telemetry", False, False)]),
+            ("CONTROL DECK", [("•", "Control Deck", True, False)]),
+            ("PRECISION INPUT ENGINE", [("•", "Live Chat", False, False), ("•", "Images", False, False)]),
+            ("SEQUENCER", [("•", "Sequencer Deck", False, True), ("•", "Biometrics Lab", False, False)]),
+            ("TOOLS", [("•", "Code Memory", False, False), ("•", "Session Telemetry", False, False)]),
         ]
 
         for heading, items in groups:
-            col.addWidget(make_label(heading, 8, "#A88B77", bold=True))
+            col.addWidget(make_label(heading, 8, COLOR_TEXT_MUTED, bold=False))
             for icon_char, name, is_active, has_beacon in items:
                 btn = QPushButton()
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn.setFixedHeight(32)
+                btn.setFixedHeight(30)
                 b_lay = QHBoxLayout(btn)
-                b_lay.setContentsMargins(10, 0, 10, 0)
-                b_lay.setSpacing(8)
+                b_lay.setContentsMargins(8, 0, 8, 0)
+                b_lay.setSpacing(6)
 
                 icon_lbl = QLabel(icon_char)
-                icon_lbl.setStyleSheet("color: #FFD18B; font-size: 13px; background: transparent;")
+                icon_lbl.setStyleSheet(f"color: {COLOR_TEXT if is_active else COLOR_TEXT_MUTED}; font-size: 11px; background: transparent;")
                 b_lay.addWidget(icon_lbl)
 
                 title_lbl = QLabel(name)
-                title_lbl.setFont(get_app_font(10, QFont.Weight.Bold if is_active else QFont.Weight.Normal))
-                title_lbl.setStyleSheet("color: #FFFFFF;" if is_active else "color: #E2D2C2; background: transparent;")
+                title_lbl.setFont(get_app_font(9, QFont.Weight.Normal))
+                title_lbl.setStyleSheet(f"color: {COLOR_SURFACE if is_active else COLOR_TEXT}; background: transparent;")
                 b_lay.addWidget(title_lbl, 1)
 
                 if has_beacon:
                     b_dot = QLabel("●")
-                    b_dot.setStyleSheet("color: #34D399; font-size: 10px; background: transparent;")
+                    b_dot.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 8px; background: transparent;")
                     b_lay.addWidget(b_dot)
 
                 if is_active:
-                    btn.setStyleSheet("""
-                        QPushButton {
-                            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 140), stop:1 rgba(217, 119, 6, 90));
-                            border: 1px solid rgba(255, 210, 140, 180);
-                            border-radius: 12px;
-                        }
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background: {COLOR_TEXT};
+                            border: 1px solid {COLOR_TEXT};
+                            border-radius: 6px;
+                        }}
                     """)
                 else:
-                    btn.setStyleSheet("""
-                        QPushButton {
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
                             background: transparent;
                             border: 1px solid transparent;
-                            border-radius: 12px;
-                        }
-                        QPushButton:hover {
-                            background: rgba(255, 215, 170, 26);
-                            border: 1px solid rgba(255, 190, 125, 60);
-                        }
+                            border-radius: 6px;
+                        }}
+                        QPushButton:hover {{
+                            background: {COLOR_BACKGROUND};
+                            border: 1px solid {COLOR_BORDER};
+                        }}
                     """)
 
                 btn.clicked.connect(lambda checked=False, n=name: self._on_sidebar_nav_clicked(n))
@@ -499,38 +494,45 @@ class MainWindow(QMainWindow):
         col.addStretch(1)
 
         # Bottom Hardware Hotkey Panel
-        hk_card = GlassCard(elevated=True)
+        hk_card = QFrame()
         hk_card.setFixedHeight(84)
+        hk_card.setStyleSheet(f"""
+            QFrame {{
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 6px;
+            }}
+        """)
         hk_lay = QVBoxLayout(hk_card)
         hk_lay.setContentsMargins(10, 8, 10, 8)
         hk_lay.setSpacing(6)
 
-        hk_lay.addWidget(make_label("HARDWARE HOTKEY", 8, "#A88B77", bold=True))
+        hk_lay.addWidget(make_label("HARDWARE HOTKEY", 8, COLOR_TEXT_MUTED, bold=False))
 
         # Inset Key Capsule (Interactive trigger button)
         key_capsule = QPushButton()
         key_capsule.setCursor(Qt.CursorShape.PointingHandCursor)
         key_capsule.setToolTip("Click or press Alt + Z + T to start typing")
         key_capsule.clicked.connect(self._trigger_execution)
-        key_capsule.setStyleSheet("""
-            QPushButton {
-                background: rgba(14, 9, 5, 160);
-                border: 1px solid rgba(255, 190, 130, 55);
-                border-radius: 8px;
+        key_capsule.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLOR_TEXT};
+                border: 1px solid {COLOR_TEXT};
+                border-radius: 4px;
                 text-align: left;
                 padding: 0;
-            }
-            QPushButton:hover {
-                background: rgba(36, 22, 13, 200);
-                border: 1px solid rgba(255, 200, 135, 110);
-            }
+            }}
+            QPushButton:hover {{
+                background: {COLOR_DETAIL};
+                border-color: {COLOR_DETAIL};
+            }}
         """)
         kc_lay = QHBoxLayout(key_capsule)
-        kc_lay.setContentsMargins(10, 5, 10, 5)
-        opt_lbl = make_label("⌥", 11, "#F59E0B", bold=True)
+        kc_lay.setContentsMargins(8, 4, 8, 4)
+        opt_lbl = make_label("⌨", 10, COLOR_WARNING, bold=False)
         opt_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         kc_lay.addWidget(opt_lbl)
-        self.lbl_hotkey_disp = make_label(f"  {self.current_hotkey_label}  ", 9, "#FFFFFF", bold=True, mono=True)
+        self.lbl_hotkey_disp = make_label(f"  {self.current_hotkey_label}  ", 9, COLOR_SURFACE, bold=False, mono=True)
         self.lbl_hotkey_disp.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         kc_lay.addWidget(self.lbl_hotkey_disp, 1)
         hk_lay.addWidget(key_capsule)
@@ -538,18 +540,18 @@ class MainWindow(QMainWindow):
         # Emergency Abort
         self.btn_abort = QPushButton("!  Emergency Abort [ Esc ]")
         self.btn_abort.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_abort.setFont(get_app_font(9, QFont.Weight.Bold))
-        self.btn_abort.setStyleSheet("""
-            QPushButton {
-                color: #FF5252;
+        self.btn_abort.setFont(get_app_font(9, QFont.Weight.Normal, mono=True))
+        self.btn_abort.setStyleSheet(f"""
+            QPushButton {{
+                color: {COLOR_TEXT_MUTED};
                 background: transparent;
                 border: 0;
                 text-align: left;
                 padding: 4px 2px;
-            }
-            QPushButton:hover {
-                color: #FF8585;
-            }
+            }}
+            QPushButton:hover {{
+                color: {COLOR_TEXT};
+            }}
         """)
         self.btn_abort.clicked.connect(self._trigger_abort)
         hk_lay.addWidget(self.btn_abort)
@@ -595,32 +597,20 @@ class MainWindow(QMainWindow):
         row.setSpacing(10)
 
         left = QVBoxLayout()
-        left.setSpacing(3)
-        left.addWidget(make_label("TYPO ⚡", 9, "#E09848", bold=True))
-        self.lbl_deck_title = make_label("Control Deck · Studio Sequencer", 16, "#FFFFFF", bold=True)
+        left.setSpacing(2)
+        left.addWidget(make_label("TYPO ⚡", 9, COLOR_TEXT_MUTED, bold=False))
+        self.lbl_deck_title = make_label("Control Deck · Studio Sequencer", 16, COLOR_TEXT, bold=False, display=True)
         left.addWidget(self.lbl_deck_title)
         row.addLayout(left, 1)
 
-        # Right Action Pills
-        self.btn_target = make_pill_button("● Target: Standby")
+        # Right Action Pills (Nothing High-Contrast Style)
+        self.btn_target = make_pill_button("● Target: Standby", primary=True)
         self.btn_target.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_target.setToolTip("Click to start or stop typing automation")
         self.btn_target.clicked.connect(self._toggle_execution)
-        self.btn_target.setStyleSheet("""
-            QPushButton {
-                color: #FFFFFF;
-                background: rgba(30, 20, 14, 140);
-                border: 1px solid rgba(255, 195, 130, 60);
-                border-radius: 16px;
-                padding: 0 16px;
-            }
-            QPushButton:hover {
-                background: rgba(45, 30, 20, 180);
-            }
-        """)
         row.addWidget(self.btn_target)
 
-        self.btn_ghost_hud = make_pill_button("👻 Ghost HUD")
+        self.btn_ghost_hud = make_pill_button("Ghost HUD")
         self.btn_ghost_hud.clicked.connect(self._toggle_ghost_hud)
         row.addWidget(self.btn_ghost_hud)
 
@@ -628,32 +618,33 @@ class MainWindow(QMainWindow):
 
     def _build_capsule_bar(self):
         capsule_bar = QFrame()
-        capsule_bar.setStyleSheet("""
-            QFrame {
-                background: rgba(22, 13, 8, 130);
-                border: 1px solid rgba(255, 195, 125, 65);
-                border-radius: 20px;
-            }
+        capsule_bar.setStyleSheet(f"""
+            QFrame {{
+                background: {COLOR_SURFACE};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 8px;
+            }}
         """)
         row = QHBoxLayout(capsule_bar)
-        row.setContentsMargins(6, 5, 8, 5)
+        row.setContentsMargins(6, 4, 6, 4)
         row.setSpacing(4)
 
         # Plus (+) Circle Button
         add_btn = QPushButton("+")
-        add_btn.setFixedSize(30, 30)
+        add_btn.setFixedSize(28, 28)
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_btn.setFont(get_app_font(13, QFont.Weight.Bold))
-        add_btn.setStyleSheet("""
-            QPushButton {
-                color: #FFFFFF;
-                background: rgba(45, 26, 16, 170);
-                border: 1px solid rgba(255, 195, 130, 75);
-                border-radius: 15px;
-            }
-            QPushButton:hover {
-                background: rgba(255, 190, 120, 60);
-            }
+        add_btn.setFont(get_app_font(12, QFont.Weight.Normal))
+        add_btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {COLOR_SURFACE};
+                background: {COLOR_TEXT};
+                border: 1px solid {COLOR_TEXT};
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background: {COLOR_DETAIL};
+                border-color: {COLOR_DETAIL};
+            }}
         """)
         add_btn.clicked.connect(self._load_sample)
         row.addWidget(add_btn)
@@ -667,31 +658,32 @@ class MainWindow(QMainWindow):
             disp_text = f"● {tname}" if is_active else tname
             btn = QPushButton(disp_text)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setFont(get_app_font(9, QFont.Weight.DemiBold if is_active else QFont.Weight.Normal))
-            btn.setFixedHeight(30)
+            btn.setFont(get_app_font(9, QFont.Weight.Normal))
+            btn.setFixedHeight(28)
             if is_active:
-                btn.setStyleSheet("""
-                    QPushButton {
-                        color: #FFFFFF;
-                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 190), stop:1 rgba(217, 119, 6, 150));
-                        border: 1px solid rgba(255, 215, 150, 200);
-                        border-radius: 15px;
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        color: {COLOR_SURFACE};
+                        background: {COLOR_TEXT};
+                        border: 1px solid {COLOR_TEXT};
+                        border-radius: 4px;
                         padding: 0 14px;
-                    }
+                    }}
                 """)
             else:
-                btn.setStyleSheet("""
-                    QPushButton {
-                        color: #D6C2B0;
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        color: {COLOR_TEXT_MUTED};
                         background: transparent;
-                        border: none;
+                        border: 1px solid transparent;
+                        border-radius: 4px;
                         padding: 0 12px;
-                    }
-                    QPushButton:hover {
-                        color: #FFFFFF;
-                        background: rgba(255, 200, 140, 25);
-                        border-radius: 15px;
-                    }
+                    }}
+                    QPushButton:hover {{
+                        color: {COLOR_TEXT};
+                        background: {COLOR_BACKGROUND};
+                        border: 1px solid {COLOR_BORDER};
+                    }}
                 """)
             btn.clicked.connect(lambda checked=False, tn=tname: self._select_tab(tn))
             self.tab_buttons[tname] = btn
@@ -724,25 +716,49 @@ class MainWindow(QMainWindow):
         row_w = QWidget()
         grid = QGridLayout(row_w)
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(14)
+        grid.setSpacing(12)
+
+        # Flat minimalist Nothing slider styling
+        slider_qss = f"""
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: {COLOR_BORDER};
+                border-radius: 2px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {COLOR_TEXT};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {COLOR_TEXT};
+                border: 2px solid {COLOR_SURFACE};
+                width: 14px;
+                height: 14px;
+                margin: -5px 0;
+                border-radius: 7px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: {COLOR_DETAIL};
+            }}
+        """
 
         # ------------------------------------------
-        # Left Slider: Typo & Mistake Rate (Amber)
+        # Left Slider: Typo & Mistake Rate
         # ------------------------------------------
-        card1 = GlassCard()
+        card1 = NothingCard()
         c1_lay = QVBoxLayout(card1)
-        c1_lay.setContentsMargins(18, 14, 18, 14)
+        c1_lay.setContentsMargins(16, 12, 16, 12)
         c1_lay.setSpacing(8)
 
         h1 = QHBoxLayout()
-        h1.addWidget(make_label("Typo & Mistake Rate", 12, "#FFFFFF", bold=True), 1)
-        self.lbl_mistake_badge = make_label("1.5%", 10, "#FDE68A", bold=True, mono=True)
-        self.lbl_mistake_badge.setStyleSheet("""
-            color: #FDE68A;
-            background: rgba(245, 158, 11, 45);
-            border: 1px solid rgba(251, 191, 36, 120);
-            border-radius: 12px;
-            padding: 3px 12px;
+        h1.addWidget(make_label("Typo & Mistake Rate", 11, COLOR_TEXT, bold=False), 1)
+        self.lbl_mistake_badge = make_label("1.5%", 9, COLOR_TEXT, bold=False, mono=True)
+        self.lbl_mistake_badge.setStyleSheet(f"""
+            color: {COLOR_TEXT};
+            background: {COLOR_BACKGROUND};
+            border: 1px solid {COLOR_BORDER};
+            border-radius: 4px;
+            padding: 2px 8px;
         """)
         h1.addWidget(self.lbl_mistake_badge)
         c1_lay.addLayout(h1)
@@ -750,52 +766,34 @@ class MainWindow(QMainWindow):
         self.slider_mistake = QSlider(Qt.Orientation.Horizontal)
         self.slider_mistake.setRange(0, 50)
         self.slider_mistake.setValue(15)
-        self.slider_mistake.setStyleSheet("""
-            QSlider::groove:horizontal {
-                height: 6px;
-                background: rgba(255, 210, 165, 35);
-                border-radius: 3px;
-            }
-            QSlider::sub-page:horizontal {
-                background: #F59E0B;
-                border-radius: 3px;
-            }
-            QSlider::handle:horizontal {
-                background: #FFE082;
-                border: 2px solid #FFF8E1;
-                width: 16px;
-                height: 16px;
-                margin: -5px 0;
-                border-radius: 8px;
-            }
-        """)
+        self.slider_mistake.setStyleSheet(slider_qss)
         self.slider_mistake.valueChanged.connect(self._on_mistake_change)
         c1_lay.addWidget(self.slider_mistake)
 
         sub1 = QHBoxLayout()
-        sub1.addWidget(make_label("0.0% (Flawless)", 8, "#A88B77"))
+        sub1.addWidget(make_label("0.0% (Flawless)", 8, COLOR_TEXT_MUTED))
         sub1.addStretch(1)
-        sub1.addWidget(make_label("5.0% (Natural Typos)", 8, "#A88B77"))
+        sub1.addWidget(make_label("5.0% (Natural Typos)", 8, COLOR_TEXT_MUTED))
         c1_lay.addLayout(sub1)
         grid.addWidget(card1, 0, 0)
 
         # ------------------------------------------
-        # Right Slider: Safety Focus Countdown (Magenta)
+        # Right Slider: Safety Focus Countdown
         # ------------------------------------------
-        card2 = GlassCard()
+        card2 = NothingCard()
         c2_lay = QVBoxLayout(card2)
-        c2_lay.setContentsMargins(18, 14, 18, 14)
+        c2_lay.setContentsMargins(16, 12, 16, 12)
         c2_lay.setSpacing(8)
 
         h2 = QHBoxLayout()
-        h2.addWidget(make_label("Safety Focus Countdown", 12, "#FFFFFF", bold=True), 1)
-        self.lbl_safety_badge = make_label("3.0s", 10, "#FBCFE8", bold=True, mono=True)
-        self.lbl_safety_badge.setStyleSheet("""
-            color: #FBCFE8;
-            background: rgba(219, 39, 119, 45);
-            border: 1px solid rgba(244, 114, 182, 120);
-            border-radius: 12px;
-            padding: 3px 12px;
+        h2.addWidget(make_label("Safety Focus Countdown", 11, COLOR_TEXT, bold=False), 1)
+        self.lbl_safety_badge = make_label("3.0s", 9, COLOR_TEXT, bold=False, mono=True)
+        self.lbl_safety_badge.setStyleSheet(f"""
+            color: {COLOR_TEXT};
+            background: {COLOR_BACKGROUND};
+            border: 1px solid {COLOR_BORDER};
+            border-radius: 4px;
+            padding: 2px 8px;
         """)
         h2.addWidget(self.lbl_safety_badge)
         c2_lay.addLayout(h2)
@@ -803,163 +801,144 @@ class MainWindow(QMainWindow):
         self.slider_safety = QSlider(Qt.Orientation.Horizontal)
         self.slider_safety.setRange(10, 80)
         self.slider_safety.setValue(30)
-        self.slider_safety.setStyleSheet("""
-            QSlider::groove:horizontal {
-                height: 6px;
-                background: rgba(255, 210, 165, 35);
-                border-radius: 3px;
-            }
-            QSlider::sub-page:horizontal {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #C026D3, stop:1 #EC4899);
-                border-radius: 3px;
-            }
-            QSlider::handle:horizontal {
-                background: #F472B6;
-                border: 2px solid #FCE7F3;
-                width: 16px;
-                height: 16px;
-                margin: -5px 0;
-                border-radius: 8px;
-            }
-        """)
+        self.slider_safety.setStyleSheet(slider_qss)
         self.slider_safety.valueChanged.connect(self._on_safety_change)
         c2_lay.addWidget(self.slider_safety)
 
         sub2 = QHBoxLayout()
-        sub2.addWidget(make_label("1.0s (Fast Switch)", 8, "#A88B77"))
+        sub2.addWidget(make_label("1.0s (Fast Switch)", 8, COLOR_TEXT_MUTED))
         sub2.addStretch(1)
-        sub2.addWidget(make_label("8.0s (Relaxed)", 8, "#A88B77"))
+        sub2.addWidget(make_label("8.0s (Relaxed)", 8, COLOR_TEXT_MUTED))
         c2_lay.addLayout(sub2)
         grid.addWidget(card2, 0, 1)
 
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         return row_w
-
     def _build_code_buffer_card(self):
-        card = GlassCard()
+        card = NothingCard()
         col = QVBoxLayout(card)
-        col.setContentsMargins(18, 12, 18, 12)
-        col.setSpacing(6)
+        col.setContentsMargins(16, 12, 16, 12)
+        col.setSpacing(8)
 
         # Header Row
         hdr = QHBoxLayout()
         beacon = QLabel("●")
-        beacon.setStyleSheet("color: #34D399; font-size: 11px; background: transparent;")
+        beacon.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 8px; background: transparent;")
         hdr.addWidget(beacon)
-        hdr.addWidget(make_label("Live Code Buffer & Non-Destructive Inspection", 12, "#FFFFFF", bold=True), 1)
+        hdr.addWidget(make_label("Live Code Buffer & Non-Destructive Inspection", 11, COLOR_TEXT, bold=False), 1)
 
-        self.btn_refresh = make_pill_button("↻ Refresh")
+        self.btn_refresh = make_pill_button("Refresh")
         self.btn_refresh.clicked.connect(self._refresh_clipboard)
         hdr.addWidget(self.btn_refresh)
 
-        self.btn_load_sample = make_pill_button("📁 Load Sample Code")
+        self.btn_load_sample = make_pill_button("Load Sample Code", primary=True)
         self.btn_load_sample.clicked.connect(self._load_sample)
         hdr.addWidget(self.btn_load_sample)
         col.addLayout(hdr)
 
-        # Recessed Monospace Editor
+        # Recessed High-Contrast Monospace Editor
         self.editor = QTextEdit()
         self.editor.setAcceptRichText(False)
         self.editor.setFont(get_app_font(10, mono=True))
         self.editor.setMinimumHeight(105)
-        self.editor.setStyleSheet("""
-            QTextEdit {
-                color: #FDF8F3;
-                background: rgba(12, 7, 4, 130);
-                border: 1px solid rgba(255, 195, 130, 45);
-                border-radius: 14px;
+        self.editor.setStyleSheet(f"""
+            QTextEdit {{
+                color: {COLOR_SURFACE};
+                background: {COLOR_TEXT};
+                border: 1px solid {COLOR_DETAIL};
+                border-radius: 6px;
                 padding: 10px 12px;
-                selection-background-color: #A16207;
-            }
-            QScrollBar:vertical {
-                width: 8px;
+                selection-background-color: {COLOR_WARNING};
+                selection-color: {COLOR_TEXT};
+            }}
+            QScrollBar:vertical {{
+                width: 6px;
                 background: transparent;
                 margin: 4px 1px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(255, 205, 150, 70);
-                border-radius: 4px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {COLOR_DETAIL};
+                border-radius: 3px;
                 min-height: 24px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0;
-            }
+            }}
         """)
         self.editor.setPlainText("Windows clipboard buffer is empty.\nCopy source code from your IDE, or click 'Load Sample Code' above.")
         self.editor.textChanged.connect(self._update_code_stats)
         col.addWidget(self.editor, 1)
 
         # Status Meta Label
-        self.lbl_code_meta = make_label("Clipboard empty", 9, "#E09848")
+        self.lbl_code_meta = make_label("Clipboard empty", 9, COLOR_TEXT_MUTED, mono=True)
         col.addWidget(self.lbl_code_meta)
         return card
 
     def _build_stealth_matrix_card(self):
-        card = GlassCard()
+        card = NothingCard()
         col = QVBoxLayout(card)
-        col.setContentsMargins(18, 12, 18, 12)
+        col.setContentsMargins(16, 12, 16, 12)
         col.setSpacing(8)
 
         # Header Row
         hdr = QHBoxLayout()
         beacon = QLabel("●")
-        beacon.setStyleSheet("color: #34D399; font-size: 11px; background: transparent;")
+        beacon.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 8px; background: transparent;")
         hdr.addWidget(beacon)
-        hdr.addWidget(make_label("Anti-Detection & Algorithmic Stealth Matrix", 12, "#FFFFFF", bold=True), 1)
+        hdr.addWidget(make_label("Anti-Detection & Algorithmic Stealth Matrix", 11, COLOR_TEXT, bold=False), 1)
         col.addLayout(hdr)
 
         # 2x2 Feature Grid
         grid = QGridLayout()
-        grid.setSpacing(10)
+        grid.setSpacing(8)
 
         features = [
-            ("🖱", "Simulated Cursor Wandering", "Subtle mouse drift with cubic easing defeats webcam gaze & mouse anomaly sensors", True, 0, 0),
-            ("⚡", "Complexity Cadence Throttler", "Throttles to 35–50 WPM on nested DP & bitwise logic; fast on boilerplate", True, 0, 1),
-            ("</>", "Incremental Code Construction", "Outlines signature stub first, then navigates back inside function", False, 1, 0),
-            ("☰", "Selection & Refactoring Simulation", "Simulates Shift+Left selection & backspace replacement of variable", True, 1, 1),
+            ("•", "Simulated Cursor Wandering", "Subtle mouse drift with cubic easing defeats webcam gaze & mouse anomaly sensors", True, 0, 0),
+            ("•", "Complexity Cadence Throttler", "Throttles to 35–50 WPM on nested DP & bitwise logic; fast on boilerplate", True, 0, 1),
+            ("•", "Incremental Code Construction", "Outlines signature stub first, then navigates back inside function", False, 1, 0),
+            ("•", "Selection & Refactoring Simulation", "Simulates Shift+Left selection & backspace replacement of variable", True, 1, 1),
         ]
 
         self.switches = {}
         for icon_char, title, desc, default_val, r, c in features:
             cell = QFrame()
-            cell.setFixedHeight(54)
-            cell.setStyleSheet("""
-                QFrame {
-                    background: rgba(22, 13, 8, 120);
-                    border: 1px solid rgba(255, 190, 130, 45);
-                    border-radius: 14px;
-                }
+            cell.setFixedHeight(50)
+            cell.setStyleSheet(f"""
+                QFrame {{
+                    background: {COLOR_BACKGROUND};
+                    border: 1px solid {COLOR_BORDER};
+                    border-radius: 6px;
+                }}
             """)
             c_lay = QHBoxLayout(cell)
-            c_lay.setContentsMargins(12, 6, 12, 6)
-            c_lay.setSpacing(10)
+            c_lay.setContentsMargins(10, 6, 10, 6)
+            c_lay.setSpacing(8)
 
-            # Circular Icon Box
+            # Minimalist Icon Box
             icon_box = QLabel(icon_char)
-            icon_box.setFixedSize(34, 34)
+            icon_box.setFixedSize(24, 24)
             icon_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            icon_box.setStyleSheet("""
-                color: #FFE0A3;
-                font-size: 14px;
-                background: rgba(45, 28, 18, 160);
-                border: 1px solid rgba(255, 205, 130, 60);
-                border-radius: 17px;
+            icon_box.setStyleSheet(f"""
+                color: {COLOR_SURFACE};
+                font-size: 11px;
+                background: {COLOR_TEXT};
+                border-radius: 4px;
             """)
             c_lay.addWidget(icon_box)
 
             # Text
             t_col = QVBoxLayout()
             t_col.setContentsMargins(0, 0, 0, 0)
-            t_col.setSpacing(2)
-            t_col.addWidget(make_label(title, 9, "#FFFFFF", bold=True))
-            d_lbl = make_label(desc, 8, "#BFA894")
+            t_col.setSpacing(1)
+            t_col.addWidget(make_label(title, 9, COLOR_TEXT, bold=False))
+            d_lbl = make_label(desc, 8, COLOR_TEXT_MUTED)
             d_lbl.setWordWrap(True)
             t_col.addWidget(d_lbl)
             c_lay.addLayout(t_col, 1)
 
-            # iOS Switch
-            sw = IOSSwitch(checked=default_val)
+            # Nothing Switch
+            sw = NothingSwitch(checked=default_val)
             sw.toggled.connect(lambda val, t=title: self._on_switch_toggled(t, val))
             self.switches[title] = sw
             c_lay.addWidget(sw)
@@ -979,56 +958,56 @@ class MainWindow(QMainWindow):
         col.setSpacing(12)
 
         # Hero Inhuman Mode Card
-        hero = GlassCard(elevated=True)
+        hero = NothingCard()
         h_lay = QVBoxLayout(hero)
-        h_lay.setContentsMargins(18, 14, 18, 14)
+        h_lay.setContentsMargins(16, 14, 16, 14)
         h_lay.setSpacing(8)
 
         h_top = QHBoxLayout()
-        h_top.addWidget(make_label("⚡  Inhuman Mode (360 WPM)", 13, "#FFFFFF", bold=True))
-        self.lbl_inhuman_badge = make_label("STANDBY", 9, "#FCD34D", bold=True, mono=True)
-        self.lbl_inhuman_badge.setStyleSheet("""
-            color: #FCD34D;
-            background: rgba(120, 53, 15, 80);
-            border: 1px solid #B45309;
-            border-radius: 8px;
-            padding: 3px 8px;
+        h_top.addWidget(make_label("Inhuman Mode (360 WPM)", 12, COLOR_TEXT, bold=False))
+        self.lbl_inhuman_badge = make_label("STANDBY", 8, COLOR_TEXT_MUTED, bold=False, mono=True)
+        self.lbl_inhuman_badge.setStyleSheet(f"""
+            color: {COLOR_TEXT_MUTED};
+            background: {COLOR_BACKGROUND};
+            border: 1px solid {COLOR_BORDER};
+            border-radius: 4px;
+            padding: 2px 8px;
         """)
         h_top.addWidget(self.lbl_inhuman_badge)
         h_top.addStretch(1)
 
-        self.btn_engage_360 = make_pill_button("⚡ Engage 360 WPM", primary=True)
+        self.btn_engage_360 = make_pill_button("Engage 360 WPM", primary=True)
         self.btn_engage_360.clicked.connect(self._engage_360_wpm)
         h_top.addWidget(self.btn_engage_360)
 
-        self.sw_inhuman = IOSSwitch(checked=False)
+        self.sw_inhuman = NothingSwitch(checked=False)
         self.sw_inhuman.toggled.connect(self._on_inhuman_toggled)
         h_top.addWidget(self.sw_inhuman)
         h_lay.addLayout(h_top)
 
         h_desc = make_label(
             "Overclocks typing velocity to 360 WPM (~33.3ms inter-keystroke cadence) with adaptive 12ms micro-dwell dynamics to bypass OS queue choke and blast through speed tests.",
-            9, "#D97706"
+            8, COLOR_TEXT_MUTED
         )
         h_desc.setWordWrap(True)
         h_lay.addWidget(h_desc)
         col.addWidget(hero)
 
         # Extended Velocity Fader Card
-        fader_card = GlassCard()
+        fader_card = NothingCard()
         f_lay = QVBoxLayout(fader_card)
-        f_lay.setContentsMargins(18, 14, 18, 14)
+        f_lay.setContentsMargins(16, 14, 16, 14)
         f_lay.setSpacing(10)
 
         f_hdr = QHBoxLayout()
-        f_hdr.addWidget(make_label("Typing Velocity", 12, "#FFFFFF", bold=True), 1)
-        self.lbl_wpm_val = make_label("80 WPM", 11, "#FFD18B", bold=True, mono=True)
-        self.lbl_wpm_val.setStyleSheet("""
-            color: #FFD18B;
-            background: rgba(255, 165, 55, 45);
-            border: 1px solid rgba(255, 200, 120, 85);
-            border-radius: 9px;
-            padding: 3px 10px;
+        f_hdr.addWidget(make_label("Typing Velocity", 11, COLOR_TEXT, bold=False), 1)
+        self.lbl_wpm_val = make_label("80 WPM", 9, COLOR_TEXT, bold=False, mono=True)
+        self.lbl_wpm_val.setStyleSheet(f"""
+            color: {COLOR_TEXT};
+            background: {COLOR_BACKGROUND};
+            border: 1px solid {COLOR_BORDER};
+            border-radius: 4px;
+            padding: 2px 8px;
         """)
         f_hdr.addWidget(self.lbl_wpm_val)
         f_lay.addLayout(f_hdr)
@@ -1036,34 +1015,37 @@ class MainWindow(QMainWindow):
         self.slider_wpm = QSlider(Qt.Orientation.Horizontal)
         self.slider_wpm.setRange(30, 360)
         self.slider_wpm.setValue(80)
-        self.slider_wpm.setStyleSheet("""
-            QSlider::groove:horizontal {
-                height: 6px;
-                background: rgba(255, 210, 165, 35);
-                border-radius: 3px;
-            }
-            QSlider::sub-page:horizontal {
-                background: #F59E0B;
-                border-radius: 3px;
-            }
-            QSlider::handle:horizontal {
-                background: #FFE082;
-                border: 2px solid #FFF8E1;
-                width: 16px;
-                height: 16px;
+        self.slider_wpm.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: {COLOR_BORDER};
+                border-radius: 2px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {COLOR_TEXT};
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                background: {COLOR_TEXT};
+                border: 2px solid {COLOR_SURFACE};
+                width: 14px;
+                height: 14px;
                 margin: -5px 0;
-                border-radius: 8px;
-            }
+                border-radius: 7px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: {COLOR_DETAIL};
+            }}
         """)
         self.slider_wpm.valueChanged.connect(self._on_wpm_slider_change)
         f_lay.addWidget(self.slider_wpm)
 
         f_sub = QHBoxLayout()
-        f_sub.addWidget(make_label("30 (Relaxed)", 8, "#A88B77"))
-        f_sub.addWidget(make_label("80 (Human)", 8, "#A88B77"))
-        f_sub.addWidget(make_label("180 (Extreme)", 8, "#A88B77"))
+        f_sub.addWidget(make_label("30 (Relaxed)", 8, COLOR_TEXT_MUTED))
+        f_sub.addWidget(make_label("80 (Human)", 8, COLOR_TEXT_MUTED))
+        f_sub.addWidget(make_label("180 (Extreme)", 8, COLOR_TEXT_MUTED))
         f_sub.addStretch(1)
-        f_sub.addWidget(make_label("⚡ 360 WPM (Inhuman)", 8, "#F59E0B", bold=True))
+        f_sub.addWidget(make_label("360 WPM (Inhuman)", 8, COLOR_TEXT, bold=False))
         f_lay.addLayout(f_sub)
         col.addWidget(fader_card)
 
@@ -1078,30 +1060,31 @@ class MainWindow(QMainWindow):
         for name, btn in self.tab_buttons.items():
             is_active = (name == tab_name)
             btn.setText(f"● {name}" if is_active else name)
-            btn.setFont(get_app_font(9, QFont.Weight.DemiBold if is_active else QFont.Weight.Normal))
+            btn.setFont(get_app_font(9, QFont.Weight.Normal))
             if is_active:
-                btn.setStyleSheet("""
-                    QPushButton {
-                        color: #FFFFFF;
-                        background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(245, 158, 11, 190), stop:1 rgba(217, 119, 6, 150));
-                        border: 1px solid rgba(255, 215, 150, 200);
-                        border-radius: 15px;
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        color: {COLOR_SURFACE};
+                        background: {COLOR_TEXT};
+                        border: 1px solid {COLOR_TEXT};
+                        border-radius: 4px;
                         padding: 0 14px;
-                    }
+                    }}
                 """)
             else:
-                btn.setStyleSheet("""
-                    QPushButton {
-                        color: #D6C2B0;
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        color: {COLOR_TEXT_MUTED};
                         background: transparent;
-                        border: none;
+                        border: 1px solid transparent;
+                        border-radius: 4px;
                         padding: 0 12px;
-                    }
-                    QPushButton:hover {
-                        color: #FFFFFF;
-                        background: rgba(255, 200, 140, 25);
-                        border-radius: 15px;
-                    }
+                    }}
+                    QPushButton:hover {{
+                        color: {COLOR_TEXT};
+                        background: {COLOR_BACKGROUND};
+                        border: 1px solid {COLOR_BORDER};
+                    }}
                 """)
 
         if tab_name in ("Speed", "Biometrics"):
@@ -1164,38 +1147,39 @@ class MainWindow(QMainWindow):
     def _update_wpm_display(self, wpm: int, is_inhuman: bool):
         if is_inhuman:
             self.lbl_wpm_val.setText(f"⚡ {wpm} WPM (Inhuman)")
-            self.lbl_wpm_val.setStyleSheet("""
-                color: #FEF08A;
-                background: rgba(180, 83, 9, 80);
-                border: 1px solid #F59E0B;
-                border-radius: 9px;
-                padding: 3px 10px;
+            self.lbl_wpm_val.setStyleSheet(f"""
+                color: {COLOR_TEXT};
+                background: {COLOR_WARNING};
+                border: 1px solid {COLOR_WARNING};
+                border-radius: 4px;
+                padding: 2px 8px;
                 font-weight: bold;
             """)
             self.lbl_inhuman_badge.setText("ACTIVE · 360 WPM")
-            self.lbl_inhuman_badge.setStyleSheet("""
-                color: #FEF08A;
-                background: rgba(180, 83, 9, 80);
-                border: 1px solid #F59E0B;
-                border-radius: 8px;
-                padding: 3px 8px;
+            self.lbl_inhuman_badge.setStyleSheet(f"""
+                color: {COLOR_TEXT};
+                background: {COLOR_WARNING};
+                border: 1px solid {COLOR_WARNING};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-weight: bold;
             """)
         else:
             self.lbl_wpm_val.setText(f"{wpm} WPM")
-            self.lbl_wpm_val.setStyleSheet("""
-                color: #FFD18B;
-                background: rgba(255, 165, 55, 45);
-                border: 1px solid rgba(255, 200, 120, 85);
-                border-radius: 9px;
-                padding: 3px 10px;
+            self.lbl_wpm_val.setStyleSheet(f"""
+                color: {COLOR_TEXT};
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 2px 8px;
             """)
             self.lbl_inhuman_badge.setText("STANDBY")
-            self.lbl_inhuman_badge.setStyleSheet("""
-                color: #FCD34D;
-                background: rgba(120, 53, 15, 80);
-                border: 1px solid #B45309;
-                border-radius: 8px;
-                padding: 3px 8px;
+            self.lbl_inhuman_badge.setStyleSheet(f"""
+                color: {COLOR_TEXT_MUTED};
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 2px 8px;
             """)
 
     def _on_switch_toggled(self, title: str, enabled: bool):
@@ -1284,7 +1268,7 @@ class MainWindow(QMainWindow):
             if force or not editor_text or editor_text.startswith("Windows clipboard buffer is empty."):
                 self._last_clipboard_text = ""
                 self.lbl_code_meta.setText("Clipboard empty")
-                self.lbl_code_meta.setStyleSheet("color: #E09848; background: transparent;")
+                self.lbl_code_meta.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; background: transparent;")
 
     def _poll_clipboard(self):
         """Periodic fallback check for clipboard updates."""
@@ -1315,7 +1299,7 @@ class MainWindow(QMainWindow):
         text = self.editor.toPlainText()
         if not text or text.startswith("Windows clipboard buffer is empty."):
             self.lbl_code_meta.setText("Clipboard empty")
-            self.lbl_code_meta.setStyleSheet("color: #E09848; background: transparent;")
+            self.lbl_code_meta.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; background: transparent;")
             return
 
         stats = analyze_clipboard_content(text)
@@ -1324,7 +1308,7 @@ class MainWindow(QMainWindow):
         chars = stats.get("char_count", len(text))
         words = stats.get("word_count", stats.get("words", 0))
         self.lbl_code_meta.setText(f"{chars} characters • {lines} lines • {words} tokens{tag}")
-        self.lbl_code_meta.setStyleSheet("color: #38BDF8; background: transparent;")
+        self.lbl_code_meta.setStyleSheet(f"color: {COLOR_TEXT}; background: transparent;")
 
     def _poll_target_window(self):
         try:
