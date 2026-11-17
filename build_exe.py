@@ -1,7 +1,6 @@
 """
 TYPO - Standalone Windows Executable Builder
 Builds a single-file executable using PyInstaller.
-Automatically discovers and includes CustomTkinter theme assets.
 """
 
 import sys
@@ -55,7 +54,6 @@ def build_executable():
         "--windowed",              # No terminal window
         "--name", "TYPO",
         "--collect-all", "PySide6",
-        "--collect-all", "customtkinter",
         "--hidden-import", "pynput.keyboard._win32",
         "--hidden-import", "pynput.mouse._win32",
     ] + data_args + [
