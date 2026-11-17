@@ -13,7 +13,6 @@ import sys
 import ctypes
 from ctypes import wintypes
 import threading
-import queue
 import time
 import random
 from typing import Optional
@@ -23,7 +22,6 @@ from pynput.keyboard import Key, KeyCode, Listener
 if sys.platform != "win32":
     raise OSError("TYPO Windows Automation API requires Microsoft Windows.")
 
-# Win32 DLL references
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 try:
@@ -31,9 +29,7 @@ try:
 except Exception:
     psapi = None
 
-# ==========================================
-# Win32 Constants
-# ==========================================
+# Win32 Virtual Keys and Event Constants
 INPUT_KEYBOARD = 1
 KEYEVENTF_EXTENDEDKEY = 0x0001
 KEYEVENTF_KEYUP = 0x0002
@@ -42,15 +38,6 @@ KEYEVENTF_SCANCODE = 0x0008
 
 CF_UNICODETEXT = 13
 GMEM_MOVEABLE = 0x0002
-
-MOD_ALT = 0x0001
-MOD_CONTROL = 0x0002
-MOD_SHIFT = 0x0004
-MOD_WIN = 0x0008
-MOD_NOREPEAT = 0x4000
-
-WM_HOTKEY = 0x0312
-WM_QUIT = 0x0012
 
 VK_BACK = 0x08
 VK_TAB = 0x09
@@ -67,7 +54,6 @@ VK_DOWN = 0x28
 VK_DELETE = 0x2E
 
 PRIMARY_HOTKEY_LABEL = "Alt + Z + T"
-
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
@@ -86,7 +72,6 @@ SWP_NOMOVE = 0x0002
 SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
 
-LWA_COLORKEY = 0x00000001
 LWA_ALPHA = 0x00000002
 
 
@@ -154,12 +139,6 @@ _SetWindowLongPtr.restype = LONG_PTR
 # Setup Win32 function signatures
 user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
 user32.SendInput.restype = wintypes.UINT
-
-user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT]
-user32.RegisterHotKey.restype = wintypes.BOOL
-
-user32.UnregisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int]
-user32.UnregisterHotKey.restype = wintypes.BOOL
 
 user32.GetForegroundWindow.argtypes = []
 user32.GetForegroundWindow.restype = wintypes.HWND
