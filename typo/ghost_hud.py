@@ -1,6 +1,5 @@
 """
 TYPO® — Zero-Focus Transparent Ghost HUD
-Apple Glass UI (visionOS / Liquid Glass Edition)
 
 Engineered with Win32 Extended Window Styles:
 - WS_EX_NOACTIVATE (0x08000000): NEVER steals keyboard/window focus from Monaco, Chrome, or LeetCode
@@ -8,7 +7,6 @@ Engineered with Win32 Extended Window Styles:
 - WS_EX_TOOLWINDOW (0x00000080): Completely hidden from Alt+Tab and Windows Taskbar
 - WS_EX_LAYERED (0x00080000): Hardware-accelerated alpha transparency
 - Draggable anywhere on desktop without triggering browser 'window.blur' or 'visibilitychange'
-- Designed with Apple visionOS frosted liquid glass aesthetic, squircle geometry, and luminous neon green glow
 """
 
 import sys
@@ -76,7 +74,6 @@ class GhostHUD(ctk.CTkToplevel):
         self.attributes("-topmost", True)
         self.configure(fg_color=HUD_BG)
 
-        # Build Apple Liquid Glass Shell
         self._build_ui()
 
         # Apply Win32 WS_EX_NOACTIVATE Ghost Styles
@@ -175,7 +172,6 @@ class GhostHUD(ctk.CTkToplevel):
         )
         self.lbl_stats.pack(side="right")
 
-        # Bottom Row: Apple Glass Capsule Progress Bar
         self.progress_bar = ctk.CTkProgressBar(
             self.outer_frame,
             height=5,
