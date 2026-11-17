@@ -198,7 +198,7 @@ class TestWin32API(unittest.TestCase):
         self.assertEqual(mgr._normalize_key(KeyCode.from_char('T')), "t")
 
 
-class TestBiometricsAndGhostHUD(unittest.TestCase):
+class TestBiometricsAndRealism(unittest.TestCase):
     def setUp(self):
         self.engine = TypingEngine()
 
@@ -221,22 +221,6 @@ class TestBiometricsAndGhostHUD(unittest.TestCase):
         for char in "abcdefghijklmnopqrstuvwxyz0123456789":
             self.assertIn(char, QWERTY_NEIGHBORS)
             self.assertGreater(len(QWERTY_NEIGHBORS[char]), 0)
-
-    def test_ghost_hud_module_methods(self):
-        from typo.ghost_hud import GhostHUD, HUD_BG
-        # Instantiate GhostHUD headless/hidden
-        hud = GhostHUD()
-        hud.withdraw()
-        try:
-            # Test state transitions
-            hud.update_state("TYPING", {"target": {"title": "Test Window"}})
-            self.assertEqual(hud.lbl_state_pill.cget("text"), "⌨ TYPING")
-            hud.update_countdown(2.5)
-            self.assertEqual(hud.lbl_state_pill.cget("text"), "⏳ 2.5s")
-            hud.update_progress(50.0, 50, 100, 5.0, 5.0, "x")
-            self.assertEqual(hud.lbl_stats.cget("text"), "50/100 (50%)")
-        finally:
-            hud.destroy()
 
     def test_calculate_line_complexity(self):
         from typo.typing_engine import calculate_line_complexity
@@ -307,8 +291,9 @@ class TestUIRefactor(unittest.TestCase):
         self.assertIn("TYPO ⚡", labels)
         self.assertFalse(any("VISION OS // AUTOMATION STUDIO" in t for t in labels))
 
-        # Check sound button removed
+        # Check sound button and ghost hud removed
         self.assertFalse(hasattr(win, "btn_sound"))
+        self.assertFalse(hasattr(win, "btn_ghost_hud"))
 
         # Check capsule tabs
         tab_names = list(win.tab_buttons.keys())
