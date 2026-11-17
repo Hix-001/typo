@@ -412,7 +412,6 @@ class MainWindow(QMainWindow):
         self.hotkey_mgr: Optional[GlobalHotKeyManager] = None
         self.current_hotkey_label = PRIMARY_HOTKEY_LABEL
         self.sound_enabled = True
-        self.ghost_hud = None
         self._last_clipboard_text = ""
         self._last_clip_seq = get_clipboard_sequence_number()
         self.active_tab_name = "Studio"
@@ -714,10 +713,6 @@ class MainWindow(QMainWindow):
         self.btn_target.setToolTip("Click to start or stop typing automation")
         self.btn_target.clicked.connect(self._toggle_execution)
         row.addWidget(self.btn_target)
-
-        self.btn_ghost_hud = make_pill_button("Ghost HUD")
-        self.btn_ghost_hud.clicked.connect(self._toggle_ghost_hud)
-        row.addWidget(self.btn_ghost_hud)
 
         return w
 
@@ -1307,24 +1302,6 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
 
-    def _toggle_ghost_hud(self):
-        from typo.ghost_hud import GhostHUD
-        if self.ghost_hud is None:
-            try:
-                self.ghost_hud = GhostHUD(master=None, on_close_callback=lambda: setattr(self, "ghost_hud", None))
-                self.ghost_hud.show_hud()
-                self.btn_ghost_hud.setText("◉ Ghost HUD (On)")
-            except Exception as e:
-                print(f"[Ghost HUD] Open note: {e}")
-                self.ghost_hud = None
-        else:
-            try:
-                self.ghost_hud.destroy()
-            except Exception:
-                pass
-            self.ghost_hud = None
-            self.btn_ghost_hud.setText("◉ Ghost HUD")
-
     def changeEvent(self, event):
         if event.type() == QEvent.Type.ActivationChange:
             if self.isActiveWindow():
@@ -1512,29 +1489,14 @@ class MainWindow(QMainWindow):
             self.btn_target.setText("✔ Done (100%)")
             QTimer.singleShot(2500, self._reset_to_idle)
 
-        if self.ghost_hud and hasattr(self.ghost_hud, "update_state"):
-            try:
-                self.ghost_hud.update_state(state, details)
-            except Exception:
-                pass
-
     def _apply_countdown_tick(self, seconds_left: float):
         if seconds_left > 0:
             self.btn_target.setText(f"⏳ Armed: {seconds_left:.1f}s")
         else:
             self.btn_target.setText("⚡ Typing...")
-        if self.ghost_hud and hasattr(self.ghost_hud, "update_countdown"):
-            try:
-                self.ghost_hud.update_countdown(seconds_left)
-            except Exception:
-                pass
 
     def _apply_progress_tick(self, pct, typed, total, elapsed, remaining, char):
-        if self.ghost_hud and hasattr(self.ghost_hud, "update_progress"):
-            try:
-                self.ghost_hud.update_progress(pct, typed, total, elapsed, remaining, char)
-            except Exception:
-                pass
+        pass
 
     def _apply_engine_error(self, err_msg: str):
         self.btn_target.setText(f"❌ {err_msg[:16]}")
@@ -1543,11 +1505,6 @@ class MainWindow(QMainWindow):
         self.engine.stop()
         if self.hotkey_mgr:
             self.hotkey_mgr.stop()
-        if self.ghost_hud:
-            try:
-                self.ghost_hud.destroy()
-            except Exception:
-                pass
         event.accept()
 
 
