@@ -4,7 +4,6 @@ Provides non-destructive Unicode clipboard inspection, character analytics,
 code syntax detection, and preview formatting.
 """
 
-import re
 import ctypes
 from ctypes import wintypes
 from typo.win32_api import (
@@ -16,7 +15,6 @@ from typo.win32_api import (
     GMEM_MOVEABLE
 )
 
-# Ensure 64-bit compatible ctypes signatures for clipboard operations
 user32.OpenClipboard.argtypes = [wintypes.HWND]
 user32.OpenClipboard.restype = wintypes.BOOL
 user32.GetClipboardData.argtypes = [wintypes.UINT]
@@ -38,7 +36,7 @@ kernel32.GlobalFree.restype = wintypes.HGLOBAL
 
 def get_current_clipboard() -> tuple[str, bool, str]:
     """
-    Returns (raw_text, is_empty, error_message)
+    Returns (raw_text, is_empty, error_message).
     Never alters or clears the user's clipboard.
     Uses Qt QClipboard if available for instantaneous retrieval without
     Windows clipboard handle locking contention, with fallback to Win32 API.
@@ -73,22 +71,18 @@ def analyze_clipboard_content(text: str) -> dict:
     
     char_count = len(text)
     
-    # Zero-allocation line counting via C-level string count
     lines = text.count("\n")
     if not text.endswith("\n") or lines == 0:
         lines += 1
     
-    # Vectorized C-speed ASCII check (allocates 0 bytes)
     has_unicode = not text.isascii()
     
-    # Efficient word counting: split directly for moderate text, sample for huge files
     if char_count <= 25_000:
         words = len(text.split())
     else:
         sample_words = len(text[:25_000].split())
         words = max(1, int((sample_words / 25_000) * char_count))
     
-    # Code syntax heuristic inspection on first 12,000 characters
     scan_chunk = text[:12_000]
     code_indicators = (
         "def ", "class ", "function ", "const ", "let ", "var ",
@@ -96,7 +90,6 @@ def analyze_clipboard_content(text: str) -> dict:
     )
     has_code = any(ind in scan_chunk for ind in code_indicators) or "\t" in scan_chunk or "    " in scan_chunk
     
-    # Generate clean preview without holding extra string copies
     if char_count > 600:
         preview = f"{text[:600]}\n\n... [Truncated: {char_count - 600} more characters] ..."
     else:
