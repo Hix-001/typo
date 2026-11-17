@@ -19,15 +19,15 @@ import winsound
 import ctypes
 from typing import Optional
 
-from PySide6.QtCore import Qt, QSize, QPointF, QRectF, Signal, QTimer, QObject, QEvent
+from PySide6.QtCore import Qt, QRectF, Signal, QTimer, QObject, QEvent
 from PySide6.QtGui import (
     QColor, QFont, QFontDatabase, QPainter, QPen,
-    QBrush, QIcon, QPixmap, QPainterPath
+    QBrush, QPainterPath
 )
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QSlider, QTextEdit,
-    QSizePolicy, QSpacerItem, QStackedWidget
+    QStackedWidget
 )
 
 from typo.typing_engine import TypingEngine, EngineState
