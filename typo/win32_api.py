@@ -58,22 +58,6 @@ PRIMARY_HOTKEY_LABEL = "Alt + Z + T"
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
 
-# Extended Window Styles & Ghost HUD Constants
-WS_EX_TOPMOST = 0x00000008
-WS_EX_TRANSPARENT = 0x00000020
-WS_EX_TOOLWINDOW = 0x00000080
-WS_EX_LAYERED = 0x00080000
-WS_EX_NOACTIVATE = 0x08000000
-
-GWL_EXSTYLE = -20
-HWND_TOPMOST = -1
-SWP_NOSIZE = 0x0001
-SWP_NOMOVE = 0x0002
-SWP_NOACTIVATE = 0x0010
-SWP_SHOWWINDOW = 0x0040
-
-LWA_ALPHA = 0x00000002
-
 
 # ==========================================
 # Ctypes Struct Definitions for 64-bit / 32-bit
@@ -122,20 +106,6 @@ class INPUT(ctypes.Structure):
 class POINT(ctypes.Structure):
     _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
-LONG_PTR = ctypes.c_longlong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_long
-
-if hasattr(user32, "GetWindowLongPtrW"):
-    _GetWindowLongPtr = user32.GetWindowLongPtrW
-    _SetWindowLongPtr = user32.SetWindowLongPtrW
-else:
-    _GetWindowLongPtr = user32.GetWindowLongW
-    _SetWindowLongPtr = user32.SetWindowLongW
-
-_GetWindowLongPtr.argtypes = [wintypes.HWND, ctypes.c_int]
-_GetWindowLongPtr.restype = LONG_PTR
-_SetWindowLongPtr.argtypes = [wintypes.HWND, ctypes.c_int, LONG_PTR]
-_SetWindowLongPtr.restype = LONG_PTR
-
 # Setup Win32 function signatures
 user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
 user32.SendInput.restype = wintypes.UINT
@@ -160,18 +130,6 @@ user32.CloseClipboard.restype = wintypes.BOOL
 
 user32.GetClipboardData.argtypes = [wintypes.UINT]
 user32.GetClipboardData.restype = wintypes.HANDLE
-
-user32.GetParent.argtypes = [wintypes.HWND]
-user32.GetParent.restype = wintypes.HWND
-
-user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
-user32.GetAncestor.restype = wintypes.HWND
-
-user32.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD]
-user32.SetLayeredWindowAttributes.restype = wintypes.BOOL
-
-user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
-user32.SetWindowPos.restype = wintypes.BOOL
 
 if hasattr(user32, "GetClipboardSequenceNumber"):
     user32.GetClipboardSequenceNumber.argtypes = []
@@ -539,38 +497,6 @@ def type_character_biometric(char: str, dwell_s: float = 0.05) -> bool:
             except Exception:
                 pass
     return ok
-
-
-def make_window_ghost(hwnd: int, alpha: int = 240) -> bool:
-    """
-    Applies Win32 extended window styles to make a window a Zero-Focus Ghost HUD:
-    - WS_EX_NOACTIVATE: Windows NEVER transfers keyboard focus or activates it on click
-    - WS_EX_TOPMOST: Floats above all full-screen windows (browser, IDE, proctor)
-    - WS_EX_TOOLWINDOW: Hidden from Alt+Tab switcher and Windows Taskbar
-    - WS_EX_LAYERED: Enables per-pixel / alpha blending (0-255)
-    """
-    try:
-        parent = user32.GetParent(hwnd)
-        root = user32.GetAncestor(hwnd, 2)  # GA_ROOT
-        target_hwnd = root if root else (parent if parent else hwnd)
-
-        ex_style = _GetWindowLongPtr(target_hwnd, GWL_EXSTYLE)
-        ghost_style = ex_style | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED
-        _SetWindowLongPtr(target_hwnd, GWL_EXSTYLE, ghost_style)
-
-        if alpha < 255:
-            user32.SetLayeredWindowAttributes(target_hwnd, 0, alpha, LWA_ALPHA)
-
-        user32.SetWindowPos(
-            target_hwnd,
-            HWND_TOPMOST,
-            0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
-        )
-        return True
-    except Exception as e:
-        print(f"[TYPO Win32] make_window_ghost error: {e}")
-        return False
 
 
 # ==========================================
