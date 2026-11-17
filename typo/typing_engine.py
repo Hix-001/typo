@@ -22,7 +22,6 @@ from typing import Callable, Optional
 from typo.win32_api import (
     type_character_native,
     type_character_biometric,
-    send_virtual_key,
     send_virtual_key_with_dwell,
     get_foreground_window_info,
     is_escape_pressed,
@@ -36,9 +35,7 @@ from typo.win32_api import (
     VK_UP,
     VK_DOWN,
     VK_LEFT,
-    VK_RIGHT,
-    VK_HOME,
-    VK_END
+    VK_RIGHT
 )
 
 # QWERTY Proximity Map for Autonomous Mistake Injection
@@ -575,7 +572,6 @@ class TypingEngine:
         return False
 
     def trigger_from_clipboard(self):
-
         """Reads text from clipboard and initiates the countdown & typing workflow."""
         if self.state in (EngineState.COUNTDOWN, EngineState.TYPING):
             return
