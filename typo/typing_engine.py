@@ -213,6 +213,9 @@ class TypingEngine:
         # Feature 19: Inhuman Mode (360 WPM / ~1800 CPM Ultra-Speed Stream)
         self.inhuman_mode: bool = False
 
+        # Feature 20: AI Mode (1000 WPM / Zero Errors / Pristine Machine Stream)
+        self.ai_mode: bool = False
+
         # State management
         self.state: str = EngineState.IDLE
         self._pause_event = threading.Event()
@@ -478,6 +481,10 @@ class TypingEngine:
         cpm = max(30.0, self.wpm) * 5.0
         base_delay = 60.0 / cpm
 
+        # AI Mode overclocks to machine speed (1000 WPM = exactly 12ms flat cadence, zero jitter)
+        if self.ai_mode or self.wpm >= 800.0:
+            return base_delay
+
         std_dev = base_delay * self.variance
         delay = random.gauss(base_delay, std_dev)
 
@@ -507,7 +514,11 @@ class TypingEngine:
         Calculates authentic human key dwell time (duration physical key remains held down).
         Normal distribution centered around base_dwell_ms (default ~55ms).
         In Inhuman Mode (360 WPM), scales down to ~12ms to prevent queue congestion.
+        In AI Mode (1000 WPM), scales down to ultra-crisp 3ms machine pulse.
         """
+        if self.ai_mode or self.wpm >= 800.0:
+            return 0.003
+
         effective_dwell_ms = 12.0 if (self.inhuman_mode or self.wpm >= 300.0) else self.base_dwell_ms
         base = effective_dwell_ms / 1000.0
         std = base * self.dwell_variance
@@ -534,6 +545,9 @@ class TypingEngine:
         5. Motor recovery delay: human prepares to type correct key (60ms - 130ms).
         Returns True if interrupted/stopped, False otherwise.
         """
+        if self.ai_mode:
+            return False
+
         lower = target_char.lower()
         candidates = QWERTY_NEIGHBORS.get(lower, [])
         if not candidates:
@@ -739,8 +753,8 @@ class TypingEngine:
 
             if action_type == "LINE_START":
                 current_line_complexity = float(val)
-                # Feature 17 & 5: If line is complex, pause contemplatively and gently drift cursor
-                if self.complexity_throttler_enabled and current_line_complexity > 1.35:
+                # Feature 17 & 5: If line is complex, pause contemplatively and gently drift cursor (bypassed in AI mode)
+                if self.complexity_throttler_enabled and not self.ai_mode and current_line_complexity > 1.35:
                     cog_pause = random.uniform(0.25, 0.65) * (current_line_complexity - 0.9)
                     if self._sleep_interruptible(cog_pause):
                         self._set_state(EngineState.STOPPED, {"reason": "Emergency stop during cognitive pause"})
@@ -749,14 +763,14 @@ class TypingEngine:
                 continue
 
             elif action_type == "ENTER":
-                # Send Enter with biometric dwell time
-                dwell = self.calculate_dwell_time("\n") if self.biometric_dynamics_enabled else 0.04
+                # Send Enter with biometric dwell time (scaled down in AI mode)
+                dwell = 0.003 if self.ai_mode else (self.calculate_dwell_time("\n") if self.biometric_dynamics_enabled else 0.04)
                 send_virtual_key_with_dwell(VK_RETURN, dwell)
                 display_char = "↵"
-                # Feature 5: Drift cursor during newline pause
-                self._trigger_cursor_wandering()
+                if not self.ai_mode:
+                    self._trigger_cursor_wandering()
                 # Extra pause after Enter for editor auto-formatting to settle
-                pause_len = base_char_delay * (1.8 if self.code_editor_mode else 1.2)
+                pause_len = 0.012 if self.ai_mode else (base_char_delay * (1.8 if self.code_editor_mode else 1.2))
                 if self._sleep_interruptible(pause_len):
                     self._set_state(EngineState.STOPPED, {"reason": "Emergency stop during typing"})
                     return
@@ -789,6 +803,14 @@ class TypingEngine:
             elif action_type == "REFACTOR_SIM":
                 # Feature 18: Selection & Refactoring Simulation
                 draft_token, target_token = val
+                if self.ai_mode:
+                    for ch in target_token:
+                        type_character_native(ch)
+                        time.sleep(0.005)
+                    display_char = target_token[-1] if target_token else "✎"
+                    prev_char = target_token[-1] if target_token else ""
+                    continue
+
                 dwell = self.calculate_dwell_time("a") if self.biometric_dynamics_enabled else 0.04
                 for ch in draft_token:
                     if self.biometric_dynamics_enabled:
@@ -852,9 +874,10 @@ class TypingEngine:
                     self._set_state(EngineState.STOPPED, {"reason": "Emergency stop during typing"})
                     return
 
-                # Autonomous Mistake Injection Check
+                # Autonomous Mistake Injection Check (bypassed in AI mode)
                 if (
-                    self.mistake_injection_enabled
+                    not self.ai_mode
+                    and self.mistake_injection_enabled
                     and mistake_cooldown <= 0
                     and char.isalnum()
                     and random.random() < self.mistake_rate
@@ -867,9 +890,11 @@ class TypingEngine:
                 if mistake_cooldown > 0:
                     mistake_cooldown -= 1
 
-                # Biometric Dwell Time Typing
+                # Biometric Dwell Time Typing (instant native codepoint in AI mode)
                 dwell_s = self.calculate_dwell_time(char) if self.biometric_dynamics_enabled else 0.0
-                if self.biometric_dynamics_enabled:
+                if self.ai_mode:
+                    type_character_native(char)
+                elif self.biometric_dynamics_enabled:
                     type_character_biometric(char, dwell_s)
                 else:
                     type_character_native(char)
