@@ -1049,13 +1049,53 @@ class MainWindow(QMainWindow):
         return card
 
     # ==========================================
-    # 4. Biometrics Lab Deck (Inhuman Mode 360 WPM)
+    # 4. Biometrics Lab Deck (Inhuman & AI Mode)
     # ==========================================
     def _build_biometrics_deck(self):
         deck = QWidget()
         col = QVBoxLayout(deck)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(12)
+
+        # Hero AI Mode Card (1000 WPM / 0% Errors / Machine Execution)
+        ai_hero = NothingCard()
+        ai_lay = QVBoxLayout(ai_hero)
+        ai_lay.setContentsMargins(16, 14, 16, 14)
+        ai_lay.setSpacing(8)
+
+        ai_top = QHBoxLayout()
+        ai_top.addWidget(make_label("AI Mode (1000 WPM)", 12, COLOR_TEXT, bold=False))
+        self.lbl_ai_badge = make_label("STANDBY", 8, COLOR_TEXT_MUTED, bold=False, mono=True)
+        self.lbl_ai_badge.setStyleSheet(f"""
+            color: {COLOR_TEXT_MUTED};
+            background: {COLOR_BACKGROUND};
+            border: 1px solid {COLOR_BORDER};
+            border-radius: 4px;
+            padding: 2px 8px;
+        """)
+        ai_top.addWidget(self.lbl_ai_badge)
+        ai_top.addStretch(1)
+
+        self.btn_engage_1000 = make_pill_button("Engage 1000 WPM", primary=True)
+        self.btn_engage_1000.clicked.connect(self._engage_1000_wpm)
+        ai_top.addWidget(self.btn_engage_1000)
+
+        ai_lbl = make_label("AI", 9, COLOR_TEXT, bold=True, mono=True)
+        ai_top.addWidget(ai_lbl)
+
+        self.sw_ai = NothingSwitch(checked=False)
+        self.sw_ai.toggled.connect(self._on_ai_toggled)
+        self.switches["AI"] = self.sw_ai
+        ai_top.addWidget(self.sw_ai)
+        ai_lay.addLayout(ai_top)
+
+        ai_desc = make_label(
+            "Overclocks typing velocity to 1000 WPM (~12ms cadence) with 0% error rate, zero jitter, and eliminated cognitive pauses for flawless machine-speed code generation.",
+            8, COLOR_TEXT_MUTED
+        )
+        ai_desc.setWordWrap(True)
+        ai_lay.addWidget(ai_desc)
+        col.addWidget(ai_hero)
 
         # Hero Inhuman Mode Card
         hero = NothingCard()
@@ -1113,7 +1153,7 @@ class MainWindow(QMainWindow):
         f_lay.addLayout(f_hdr)
 
         self.slider_wpm = QSlider(Qt.Orientation.Horizontal)
-        self.slider_wpm.setRange(30, 360)
+        self.slider_wpm.setRange(30, 1000)
         self.slider_wpm.setValue(80)
         self.slider_wpm.setStyleSheet(f"""
             QSlider::groove:horizontal {{
@@ -1144,8 +1184,9 @@ class MainWindow(QMainWindow):
         f_sub.addWidget(make_label("30 (Relaxed)", 8, COLOR_TEXT_MUTED))
         f_sub.addWidget(make_label("80 (Human)", 8, COLOR_TEXT_MUTED))
         f_sub.addWidget(make_label("180 (Extreme)", 8, COLOR_TEXT_MUTED))
+        f_sub.addWidget(make_label("360 (Inhuman)", 8, COLOR_TEXT_MUTED))
         f_sub.addStretch(1)
-        f_sub.addWidget(make_label("360 WPM (Inhuman)", 8, COLOR_TEXT, bold=False))
+        f_sub.addWidget(make_label("1000 WPM (AI)", 8, COLOR_TEXT, bold=False))
         f_lay.addLayout(f_sub)
         col.addWidget(fader_card)
 
@@ -1213,12 +1254,45 @@ class MainWindow(QMainWindow):
         self.engine.safety_delay = sec
         self.lbl_safety_badge.setText(f"{sec:.1f}s")
 
+    def _engage_1000_wpm(self):
+        if self.sw_inhuman.isChecked():
+            self.sw_inhuman.setChecked(False)
+        self.engine.inhuman_mode = False
+        self.engine.ai_mode = True
+        self.engine.wpm = 1000.0
+        self.slider_wpm.setValue(1000)
+        self.sw_ai.setChecked(True)
+        self._update_wpm_display(1000, is_inhuman=False, is_ai=True)
+        if self.sound_enabled:
+            try:
+                winsound.MessageBeep(winsound.MB_ICONASTERISK)
+            except Exception:
+                pass
+
+    def _on_ai_toggled(self, checked: bool):
+        self.engine.ai_mode = checked
+        if checked:
+            if self.sw_inhuman.isChecked():
+                self.sw_inhuman.setChecked(False)
+            self.engine.inhuman_mode = False
+            self.engine.wpm = 1000.0
+            self.slider_wpm.setValue(1000)
+            self._update_wpm_display(1000, is_inhuman=False, is_ai=True)
+        else:
+            if not self.sw_inhuman.isChecked():
+                self.engine.wpm = 80.0
+                self.slider_wpm.setValue(80)
+                self._update_wpm_display(80, is_inhuman=False, is_ai=False)
+
     def _engage_360_wpm(self):
+        if self.sw_ai.isChecked():
+            self.sw_ai.setChecked(False)
+        self.engine.ai_mode = False
         self.engine.inhuman_mode = True
         self.engine.wpm = 360.0
         self.slider_wpm.setValue(360)
         self.sw_inhuman.setChecked(True)
-        self._update_wpm_display(360, is_inhuman=True)
+        self._update_wpm_display(360, is_inhuman=True, is_ai=False)
         if self.sound_enabled:
             try:
                 winsound.MessageBeep(winsound.MB_ICONASTERISK)
@@ -1228,24 +1302,66 @@ class MainWindow(QMainWindow):
     def _on_inhuman_toggled(self, checked: bool):
         self.engine.inhuman_mode = checked
         if checked:
+            if self.sw_ai.isChecked():
+                self.sw_ai.setChecked(False)
+            self.engine.ai_mode = False
             self.engine.wpm = 360.0
             self.slider_wpm.setValue(360)
-            self._update_wpm_display(360, is_inhuman=True)
+            self._update_wpm_display(360, is_inhuman=True, is_ai=False)
         else:
-            self.engine.wpm = 80.0
-            self.slider_wpm.setValue(80)
-            self._update_wpm_display(80, is_inhuman=False)
+            if not self.sw_ai.isChecked():
+                self.engine.wpm = 80.0
+                self.slider_wpm.setValue(80)
+                self._update_wpm_display(80, is_inhuman=False, is_ai=False)
 
     def _on_wpm_slider_change(self, val: int):
         self.engine.wpm = float(val)
-        is_inhuman = (val >= 300)
+        is_ai = (val >= 800)
+        is_inhuman = (300 <= val < 800)
+        self.engine.ai_mode = is_ai
         self.engine.inhuman_mode = is_inhuman
-        if self.sw_inhuman.isChecked() != is_inhuman:
-            self.sw_inhuman.setChecked(is_inhuman)
-        self._update_wpm_display(val, is_inhuman=is_inhuman)
 
-    def _update_wpm_display(self, wpm: int, is_inhuman: bool):
-        if is_inhuman:
+        if self.sw_ai.isChecked() != is_ai:
+            self.sw_ai.blockSignals(True)
+            self.sw_ai.setChecked(is_ai)
+            self.sw_ai.blockSignals(False)
+
+        if self.sw_inhuman.isChecked() != is_inhuman:
+            self.sw_inhuman.blockSignals(True)
+            self.sw_inhuman.setChecked(is_inhuman)
+            self.sw_inhuman.blockSignals(False)
+
+        self._update_wpm_display(val, is_inhuman=is_inhuman, is_ai=is_ai)
+
+    def _update_wpm_display(self, wpm: int, is_inhuman: bool, is_ai: bool = False):
+        if is_ai:
+            self.lbl_wpm_val.setText(f"⚡ {wpm} WPM (AI Mode)")
+            self.lbl_wpm_val.setStyleSheet(f"""
+                color: {COLOR_SURFACE};
+                background: {COLOR_TEXT};
+                border: 1px solid {COLOR_TEXT};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-weight: bold;
+            """)
+            self.lbl_ai_badge.setText("ACTIVE · 1000 WPM")
+            self.lbl_ai_badge.setStyleSheet(f"""
+                color: {COLOR_SURFACE};
+                background: {COLOR_TEXT};
+                border: 1px solid {COLOR_TEXT};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-weight: bold;
+            """)
+            self.lbl_inhuman_badge.setText("STANDBY")
+            self.lbl_inhuman_badge.setStyleSheet(f"""
+                color: {COLOR_TEXT_MUTED};
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 2px 8px;
+            """)
+        elif is_inhuman:
             self.lbl_wpm_val.setText(f"⚡ {wpm} WPM (Inhuman)")
             self.lbl_wpm_val.setStyleSheet(f"""
                 color: {COLOR_TEXT};
@@ -1264,6 +1380,14 @@ class MainWindow(QMainWindow):
                 padding: 2px 8px;
                 font-weight: bold;
             """)
+            self.lbl_ai_badge.setText("STANDBY")
+            self.lbl_ai_badge.setStyleSheet(f"""
+                color: {COLOR_TEXT_MUTED};
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 2px 8px;
+            """)
         else:
             self.lbl_wpm_val.setText(f"{wpm} WPM")
             self.lbl_wpm_val.setStyleSheet(f"""
@@ -1275,6 +1399,14 @@ class MainWindow(QMainWindow):
             """)
             self.lbl_inhuman_badge.setText("STANDBY")
             self.lbl_inhuman_badge.setStyleSheet(f"""
+                color: {COLOR_TEXT_MUTED};
+                background: {COLOR_BACKGROUND};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 2px 8px;
+            """)
+            self.lbl_ai_badge.setText("STANDBY")
+            self.lbl_ai_badge.setStyleSheet(f"""
                 color: {COLOR_TEXT_MUTED};
                 background: {COLOR_BACKGROUND};
                 border: 1px solid {COLOR_BORDER};
