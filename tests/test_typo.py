@@ -273,6 +273,22 @@ class TestBiometricsAndRealism(unittest.TestCase):
         self.assertIsInstance(pos, tuple)
         self.assertEqual(len(pos), 2)
 
+    def test_ai_mode_overclock_and_zero_errors(self):
+        self.engine.ai_mode = True
+        self.engine.wpm = 1000.0
+
+        # Character delay at 1000 WPM should be exactly 0.012s (12ms) without jitter
+        delay = self.engine.calculate_character_delay("a", "b", line_complexity=2.5)
+        self.assertAlmostEqual(delay, 0.012, places=4)
+
+        # Dwell time should scale down to 3ms (0.003s)
+        dwell = self.engine.calculate_dwell_time("a")
+        self.assertAlmostEqual(dwell, 0.003, places=4)
+
+        # In AI mode, mistakes are strictly 0% (returns False immediately)
+        injected = self.engine._inject_mistake_and_correct("k")
+        self.assertFalse(injected)
+
 
 class TestUIRefactor(unittest.TestCase):
     @classmethod
@@ -348,6 +364,43 @@ class TestUIRefactor(unittest.TestCase):
         f_mono = ui.get_app_font(12, mono=True)
         self.assertEqual(f_mono.pointSize(), 12)
         self.assertIn("SF Mono", f_mono.families() or [f_mono.family()])
+
+    def test_speed_deck_ai_toggle_and_state(self):
+        from typo.ui import MainWindow
+        win = MainWindow()
+
+        # Check that AI toggle and engage button exist
+        self.assertTrue(hasattr(win, "sw_ai"))
+        self.assertTrue(hasattr(win, "btn_engage_1000"))
+        self.assertFalse(win.sw_ai.isChecked())
+        self.assertFalse(win.engine.ai_mode)
+
+        # Engage 1000 WPM
+        win.btn_engage_1000.click()
+        self.assertTrue(win.sw_ai.isChecked())
+        self.assertTrue(win.engine.ai_mode)
+        self.assertEqual(win.engine.wpm, 1000.0)
+        self.assertEqual(win.slider_wpm.value(), 1000)
+        self.assertIn("1000 WPM", win.lbl_ai_badge.text())
+        self.assertFalse(win.sw_inhuman.isChecked())
+
+        # Toggle Inhuman mode -> AI mode turns off
+        win.btn_engage_360.click()
+        self.assertTrue(win.sw_inhuman.isChecked())
+        self.assertFalse(win.sw_ai.isChecked())
+        self.assertFalse(win.engine.ai_mode)
+        self.assertTrue(win.engine.inhuman_mode)
+        self.assertEqual(win.engine.wpm, 360.0)
+
+        # Toggle AI switch directly
+        win.sw_ai.setChecked(True)
+        self.assertTrue(win.engine.ai_mode)
+        self.assertFalse(win.sw_inhuman.isChecked())
+
+        # Toggle AI switch off -> returns to normal WPM
+        win.sw_ai.setChecked(False)
+        self.assertFalse(win.engine.ai_mode)
+        self.assertEqual(win.engine.wpm, 80.0)
 
 
 if __name__ == "__main__":
